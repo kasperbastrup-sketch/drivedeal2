@@ -1,7 +1,10 @@
 'use client'
 import { useToast } from '@/components/Toast'
 
-const camps = [
+interface Kpi { val: string; lbl: string; c?: string }
+interface Camp { icon: string; bg: string; name: string; meta: string; status: string; statusCls: string; kpis: Kpi[]; inactive?: boolean }
+
+const camps: Camp[] = [
   {icon:'📧',bg:'var(--goldglow)',name:'Sommer Reactivation 2025',meta:'BMW, Mercedes, Audi · 90+ dage · Startet 3. juli 2025',status:'Aktiv',statusCls:'pill-green',kpis:[{val:'247',lbl:'Sendt'},{val:'38%',lbl:'Åbnet',c:'var(--gold)'},{val:'26%',lbl:'Klikket',c:'var(--amber)'},{val:'14',lbl:'Bookede',c:'var(--green)'},{val:'€ 84k',lbl:'Omsætning',c:'var(--green)'}]},
   {icon:'⚡',bg:'var(--bluebg)',name:'EV Interesse Follow-up',meta:'Tesla, Audi e-tron, Mercedes EQ · 3-step sekvens · Auto-kørende',status:'Aktiv',statusCls:'pill-green',kpis:[{val:'92',lbl:'Sendt'},{val:'51%',lbl:'Åbnet',c:'var(--gold)'},{val:'34%',lbl:'Klikket',c:'var(--amber)'},{val:'9',lbl:'Bookede',c:'var(--green)'},{val:'€ 52k',lbl:'Omsætning',c:'var(--green)'}]},
   {icon:'❄️',bg:'var(--surface2)',name:'Vinter Udsalg 2025',meta:'Alle segmenter · Planlagt november · Sat på pause',status:'Inaktiv',statusCls:'',kpis:[{val:'—',lbl:'Sendt'},{val:'—',lbl:'Åbnet'},{val:'—',lbl:'Klikket'},{val:'—',lbl:'Bookede'},{val:'—',lbl:'Omsætning'}],inactive:true},
@@ -16,7 +19,7 @@ export default function Campaigns() {
         <button className="btn btn-gold" onClick={()=>show('✨','Ny kampagne','Brug knappen "Kør AI kampagne" i topbaren')}>+ Ny kampagne</button>
       </div>
       {camps.map((c,i)=>(
-        <div key={i} className="campaign-row" style={{opacity:c.inactive?.5:1}}>
+        <div key={i} className="campaign-row" style={{opacity:c.inactive?0.5:1}}>
           <div style={{width:42,height:42,borderRadius:10,background:c.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>{c.icon}</div>
           <div style={{flex:1}}>
             <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:2}}>{c.name}</div>
