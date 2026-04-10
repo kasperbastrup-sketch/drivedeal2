@@ -3,52 +3,60 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-const navItems = [
-  { group: 'Overblik', items: [
-    { label: 'Dashboard', path: '/', icon: 'grid' },
-    { label: 'Analyser', path: '/analytics', icon: 'chart' },
-  ]},
-  { group: 'Leads', items: [
-    { label: 'Alle leads', path: '/leads', icon: 'users', badge: '847' },
-    { label: 'Importer leads', path: '/import', icon: 'download' },
-  ]},
-  { group: 'Outreach', items: [
-    { label: 'Kampagner', path: '/campaigns', icon: 'mail', badge: '3' },
-    { label: 'Sekvenser', path: '/sequences', icon: 'layers' },
-    { label: 'Email skabeloner', path: '/templates', icon: 'file' },
-  ]},
-  { group: 'System', items: [
-    { label: 'Integrationer', path: '/integrations', icon: 'plug' },
-    { label: 'Indstillinger', path: '/settings', icon: 'settings' },
-  ]},
-]
-
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [dealerName, setDealerName] = useState('Min forhandler')
   const [initials, setInitials] = useState('DD')
+  const [leadCount, setLeadCount] = useState(0)
+  const [campaignCount, setCampaignCount] = useState(0)
 
   useEffect(() => {
-    async function loadUser() {
+    async function loadData() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase.from('dealers').select('dealer_name, name').eq('id', user.id).single()
-        if (data) {
-          const name = data.dealer_name || data.name || 'Min forhandler'
-          setDealerName(name)
-          const parts = name.split(' ')
-          setInitials((parts[0][0] + (parts[1]?.[0] || '')).toUpperCase())
-        }
+      if (!user) return
+
+      const { data: dealer } = await supabase.from('dealers').select('dealer_name, name').eq('id', user.id).single()
+      if (dealer) {
+        const name = dealer.dealer_name || dealer.name || 'Min forhandler'
+        setDealerName(name)
+        const parts = name.split(' ')
+        setInitials((parts[0][0] + (parts[1]?.[0] || '')).toUpperCase())
       }
+
+      const { count: leads } = await supabase.from('leads').select('*', { count: 'exact', head: true }).eq('dealer_id', user.id)
+      setLeadCount(leads || 0)
+
+      const { count: campaigns } = await supabase.from('campaigns').select('*', { count: 'exact', head: true }).eq('dealer_id', user.id)
+      setCampaignCount(campaigns || 0)
     }
-    loadUser()
+    loadData()
   }, [])
 
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
   }
+
+  const navItems = [
+    { group: 'Overblik', items: [
+      { label: 'Dashboard', path: '/' },
+      { label: 'Analyser', path: '/analytics' },
+    ]},
+    { group: 'Leads', items: [
+      { label: 'Alle leads', path: '/leads', badge: leadCount > 0 ? leadCount.toString() : undefined },
+      { label: 'Importer leads', path: '/import' },
+    ]},
+    { group: 'Outreach', items: [
+      { label: 'Kampagner', path: '/campaigns', badge: campaignCount > 0 ? campaignCount.toString() : undefined },
+      { label: 'Sekvenser', path: '/sequences' },
+      { label: 'Email skabeloner', path: '/templates' },
+    ]},
+    { group: 'System', items: [
+      { label: 'Integrationer', path: '/integrations' },
+      { label: 'Indstillinger', path: '/settings' },
+    ]},
+  ]
 
   return (
     <aside className="sidebar">
