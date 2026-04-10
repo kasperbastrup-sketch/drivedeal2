@@ -33,9 +33,9 @@ export default function Dashboard() {
         ].map(k=>(
           <div key={k.label} className={`kpi-card ${k.cls}`}>
             <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1.2px',fontWeight:600,marginBottom:10}}>{k.label}</div>
-            <div className="font-head" style={{fontSize:28,fontWeight:700,letterSpacing:'-1px',color:k.color,marginBottom:4}}>{k.val}</div>
-            <div style={{fontSize:11,color:'var(--text2)'}}>{k.sub}</div>
-            <div style={{fontSize:11,marginTop:4,color:k.tc}}>{k.trend}</div>
+            <div style={{fontSize:36,fontWeight:800,letterSpacing:'-1.5px',color:k.color,marginBottom:4,fontFamily:'var(--font-head)',lineHeight:1}}>{k.val}</div>
+            <div style={{fontSize:11,color:'var(--text2)',marginBottom:4}}>{k.sub}</div>
+            <div style={{fontSize:11,color:k.tc}}>{k.trend}</div>
           </div>
         ))}
       </div>
@@ -44,7 +44,7 @@ export default function Dashboard() {
         <div>
           <div className="panel" style={{marginBottom:14}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-              <div className="font-head" style={{fontSize:13,fontWeight:600}}>AI aktivitet — live</div>
+              <div style={{fontFamily:'var(--font-head)',fontSize:13,fontWeight:600}}>AI aktivitet — live</div>
               <div className="pill pill-green" style={{fontSize:10}}><span className="plan-dot"></span> Auto-kørende</div>
             </div>
             {activity.map((a,i)=>(
@@ -59,7 +59,7 @@ export default function Dashboard() {
           </div>
 
           <div className="panel">
-            <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>Emails sendt — seneste 14 dage</div>
+            <div style={{fontFamily:'var(--font-head)',fontSize:13,fontWeight:600,marginBottom:14}}>Emails sendt — seneste 14 dage</div>
             <div style={{height:70,display:'flex',alignItems:'flex-end',gap:3}}>
               {chartData.map((v,i)=>(
                 <div key={i} className={`chart-bar${i===chartData.length-1?' today':''}`} style={{flex:1,height:Math.round((v/maxChart)*65)+5+'px'}} title={`${v} emails`}></div>
@@ -74,24 +74,24 @@ export default function Dashboard() {
 
         <div>
           <div className="panel" style={{marginBottom:14}}>
-            <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>Konverteringstragt</div>
+            <div style={{fontFamily:'var(--font-head)',fontSize:13,fontWeight:600,marginBottom:14}}>Konverteringstragt</div>
             {funnel.map(f=>(
               <div key={f.label} style={{display:'flex',alignItems:'center',gap:10,marginBottom:9}}>
                 <div style={{fontSize:11,color:'var(--text2)',width:72,flexShrink:0}}>{f.label}</div>
                 <div style={{flex:1,height:5,background:'var(--surface3)',borderRadius:3,overflow:'hidden'}}>
-                  <div className="funnel-fill" style={{width:f.pct+'%',background:f.color}}></div>
+                  <div style={{width:f.pct+'%',height:'100%',background:f.color,borderRadius:3}}></div>
                 </div>
-                <div style={{fontSize:11,fontWeight:600,fontFamily:'var(--font-mono)',width:32,textAlign:'right',color:f.color}}>{f.val}</div>
+                <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--font-head)',width:32,textAlign:'right',color:f.color}}>{f.val}</div>
               </div>
             ))}
-            <div style={{marginTop:16,paddingTop:12,borderTop:'1px solid var(--border)'}}>
-              <div style={{fontSize:10,color:'var(--text3)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.8px'}}>AI-genereret omsætning (est.)</div>
-              <div className="font-head" style={{fontSize:22,fontWeight:800,color:'var(--gold)',letterSpacing:'-1px'}}>€ 243.600</div>
+            <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+              <div style={{fontSize:10,color:'var(--text3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'1px',fontWeight:600}}>AI-genereret omsætning (est.)</div>
+              <div style={{fontSize:38,fontWeight:800,color:'var(--gold)',letterSpacing:'-2px',fontFamily:'var(--font-head)',lineHeight:1}}>€ 243.600</div>
             </div>
           </div>
 
           <div className="panel">
-            <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>Hurtig handling</div>
+            <div style={{fontFamily:'var(--font-head)',fontSize:13,fontWeight:600,marginBottom:14}}>Hurtig handling</div>
             <a href="/leads" style={{display:'block',marginBottom:7}}><button className="btn btn-ghost" style={{width:'100%',justifyContent:'center'}}>Gennemgå kolde leads →</button></a>
             <a href="/import" style={{display:'block'}}><button className="btn btn-ghost" style={{width:'100%',justifyContent:'center'}}>+ Importer leads fra CRM</button></a>
           </div>
