@@ -19,14 +19,14 @@ export default function Import() {
     const lines = text.split('\n').filter(l => l.trim())
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
 
-    const leads = lines.slice(1).map(line => {
+    const newLeads = lines.slice(1).map(line => {
       const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
       const obj: Record<string,string> = {}
       headers.forEach((h, i) => obj[h] = values[i] || '')
       return {
         dealer_id: user.id,
         name: obj['navn'] || obj['name'] || obj['nombre'] || values[0] || 'Ukendt',
-        email: obj['email'] || obj['correo'] || values[1] || '',
+        email: (obj['email'] || obj['correo'] || values[1] || '').toLowerCase().trim(),
         phone: obj['telefon'] || obj['phone'] || obj['telefono'] || values[2] || '',
         car: obj['bil'] || obj['car'] || obj['coche'] || obj['interesse'] || values[3] || '',
         days_since_contact: parseInt(obj['dage'] || obj['days'] || obj['dias'] || '90') || 90,
@@ -36,12 +36,38 @@ export default function Import() {
       }
     }).filter(l => l.email)
 
-    if (leads.length === 0) { show('⚠️', 'Ingen leads fundet', 'Tjek at CSV filen har de rigtige kolonner'); setImporting(false); return }
+    if (newLeads.length === 0) {
+      show('⚠️', 'Ingen leads fundet', 'Tjek at CSV filen har de rigtige kolonner')
+      setImporting(false)
+      return
+    }
 
-    const { error } = await supabase.from('leads').insert(leads)
+    // Hent eksisterende emails fra databasen
+    const { data: existing } = await supabase
+      .from('leads')
+      .select('email')
+      .eq('dealer_id', user.id)
+
+    const existingEmails = new Set((existing || []).map(l => l.email.toLowerCase()))
+
+    // Filtrer dubletter fra
+    const duplicates = newLeads.filter(l => existingEmails.has(l.email))
+    const unique = newLeads.filter(l => !existingEmails.has(l.email))
+
+    if (unique.length === 0) {
+      show('⚠️', 'Alle leads findes allerede', `${duplicates.length} dubletter sprunget over`)
+      setImporting(false)
+      return
+    }
+
+    const { error } = await supabase.from('leads').insert(unique)
     if (error) { show('❌', 'Fejl ved import', error.message); setImporting(false); return }
 
-    show('✅', `${leads.length} leads importeret!`, 'Gå til "Alle leads" for at se dem')
+    const msg = duplicates.length > 0
+      ? `${unique.length} importeret · ${duplicates.length} dubletter sprunget over`
+      : 'Gå til "Alle leads" for at se dem'
+
+    show('✅', `${unique.length} leads importeret!`, msg)
     refresh()
     setImporting(false)
   }
@@ -53,10 +79,25 @@ export default function Import() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { show('❌', 'Ikke logget ind', ''); return }
 
+    const email = (data.get('email') as string).toLowerCase().trim()
+
+    // Tjek om email allerede findes
+    const { data: existing } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('dealer_id', user.id)
+      .eq('email', email)
+      .single()
+
+    if (existing) {
+      show('⚠️', 'Lead findes allerede', `${email} er allerede i din database`)
+      return
+    }
+
     const { error } = await supabase.from('leads').insert({
       dealer_id: user.id,
       name: data.get('name') as string,
-      email: data.get('email') as string,
+      email,
       phone: data.get('phone') as string,
       car: data.get('car') as string,
       source: data.get('source') as string,
@@ -118,7 +159,13 @@ export default function Import() {
       <div>
         <div className="panel" style={{marginBottom:14}}>
           <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>Synkroniser fra CRM</div>
-          {[{name:'Gmail',desc:'ventas@mercedesbcn.com',done:true},{name:'HubSpot CRM',desc:'Synkroniser leads automatisk'},{name:'Salesforce',desc:'Enterprise CRM integration'},{name:'Calendly',desc:'Sync bookinger til leads'},{name:'WhatsApp Business',desc:'Send via WhatsApp'}].map(item=>(
+          {[
+            {name:'Gmail',desc:'ventas@mercedesbcn.com',done:true},
+            {name:'HubSpot CRM',desc:'Synkroniser leads automatisk'},
+            {name:'Salesforce',desc:'Enterprise CRM integration'},
+            {name:'Calendly',desc:'Sync bookinger til leads'},
+            {name:'WhatsApp Business',desc:'Send via WhatsApp'},
+          ].map(item=>(
             <div key={item.name} className={`onboard-step${item.done?' done':''}`}>
               <div style={{width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0,border:`2px solid ${item.done?'var(--green)':'var(--border2)'}`,color:item.done?'var(--green)':'var(--text2)',background:item.done?'var(--greenbg)':'none'}}>{item.done?'✓':null}</div>
               <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13}}>{item.name}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{item.desc}</div></div>
@@ -135,7 +182,7 @@ export default function Import() {
             Carlos Mendez,carlos@gmail.com,+34612001001,BMW 520d,127<br/>
             María González,maria@hotmail.com,+34612002002,Mercedes GLC,94
           </div>
-          <div style={{fontSize:11,color:'var(--text2)',marginTop:10}}>Systemet genkender automatisk dansk, spansk og engelsk kolonnenavne.</div>
+          <div style={{fontSize:11,color:'var(--text2)',marginTop:10}}>Dubletter springes automatisk over ved import.</div>
         </div>
       </div>
     </div>
