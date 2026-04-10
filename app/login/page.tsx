@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -14,15 +14,19 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const res = await signIn('credentials', {
-      email, password, redirect: false
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     })
-    if (res?.ok) {
-      router.push('/')
-    } else {
+
+    if (signInError) {
       setError('Forkert email eller password')
+      setLoading(false)
+      return
     }
-    setLoading(false)
+
+    router.push('/')
   }
 
   return (
@@ -46,7 +50,7 @@ export default function Login() {
           <div className="label">Password</div>
           <input className="field-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" style={{width:'100%',marginBottom:20}} required/>
 
-          {error && <div style={{fontSize:12,color:'var(--red)',marginBottom:12}}>{error}</div>}
+          {error && <div style={{fontSize:12,color:'var(--red)',marginBottom:12,padding:'8px 12px',background:'var(--redbg)',borderRadius:7}}>{error}</div>}
 
           <button type="submit" className="btn btn-gold" style={{width:'100%',justifyContent:'center',padding:'10px 20px',fontSize:14}} disabled={loading}>
             {loading ? 'Logger ind...' : 'Log ind →'}
@@ -55,12 +59,6 @@ export default function Login() {
 
         <div style={{marginTop:20,textAlign:'center',fontSize:12,color:'var(--text2)'}}>
           Har du ikke en konto? <a href="/signup" style={{color:'var(--gold)'}}>Opret konto</a>
-        </div>
-
-        <div style={{marginTop:24,padding:12,background:'var(--surface2)',borderRadius:8,fontSize:11,color:'var(--text2)'}}>
-          <div style={{marginBottom:4,fontWeight:600,color:'var(--text)'}}>Demo login:</div>
-          <div>Email: demo@drivedeal.io</div>
-          <div>Password: demo1234</div>
         </div>
       </div>
     </div>

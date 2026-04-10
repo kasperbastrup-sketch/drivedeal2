@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 export default function Signup() {
   const [name, setName] = useState('')
@@ -8,14 +9,39 @@ export default function Signup() {
   const [password, setPassword] = useState('')
   const [dealer, setDealer] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
+    setError('')
+
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name, dealer_name: dealer }
+        }
+      })
+
+      if (signUpError) throw signUpError
+
+      if (data.user) {
+        await supabase.from('dealers').insert({
+          id: data.user.id,
+          name,
+          email,
+          dealer_name: dealer,
+        })
+      }
+
       router.push('/login?signup=success')
-    }, 1000)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Noget gik galt. Prøv igen.')
+    }
+    setLoading(false)
   }
 
   return (
@@ -43,7 +69,9 @@ export default function Signup() {
           <input className="field-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="carlos@mercedesimadrid.es" style={{width:'100%'}} required/>
 
           <div className="label">Password</div>
-          <input className="field-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 8 tegn" style={{width:'100%',marginBottom:20}} required minLength={8}/>
+          <input className="field-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 6 tegn" style={{width:'100%',marginBottom:20}} required minLength={6}/>
+
+          {error && <div style={{fontSize:12,color:'var(--red)',marginBottom:12,padding:'8px 12px',background:'var(--redbg)',borderRadius:7}}>{error}</div>}
 
           <div style={{background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.2)',borderRadius:8,padding:12,marginBottom:20,fontSize:11,color:'var(--text2)'}}>
             <div style={{color:'var(--gold)',fontWeight:600,marginBottom:4}}>✓ 14 dages gratis prøveperiode</div>
