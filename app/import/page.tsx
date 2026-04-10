@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useToast } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
 import { useRefresh } from '@/components/AppShell'
+import { getBlacklistedEmails } from '@/lib/blacklist'
 
 export default function Import() {
   const { show } = useToast()
@@ -19,7 +20,7 @@ export default function Import() {
     const lines = text.split('\n').filter(l => l.trim())
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
 
-    const newLeads = lines.slice(1).map(line => {
+    const parsed = lines.slice(1).map(line => {
       const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
       const obj: Record<string,string> = {}
       headers.forEach((h, i) => obj[h] = values[i] || '')
@@ -36,26 +37,21 @@ export default function Import() {
       }
     }).filter(l => l.email)
 
-    if (newLeads.length === 0) {
-      show('⚠️', 'Ingen leads fundet', 'Tjek at CSV filen har de rigtige kolonner')
-      setImporting(false)
-      return
-    }
+    if (parsed.length === 0) { show('⚠️', 'Ingen leads fundet', 'Tjek CSV kolonner'); setImporting(false); return }
 
-    // Hent eksisterende emails fra databasen
-    const { data: existing } = await supabase
-      .from('leads')
-      .select('email')
-      .eq('dealer_id', user.id)
+    const [blacklisted, existing] = await Promise.all([
+      getBlacklistedEmails(user.id),
+      supabase.from('leads').select('email').eq('dealer_id', user.id)
+    ])
 
-    const existingEmails = new Set((existing || []).map(l => l.email.toLowerCase()))
+    const existingEmails = new Set((existing.data || []).map(l => l.email.toLowerCase()))
 
-    // Filtrer dubletter fra
-    const duplicates = newLeads.filter(l => existingEmails.has(l.email))
-    const unique = newLeads.filter(l => !existingEmails.has(l.email))
+    const duplicates = parsed.filter(l => existingEmails.has(l.email))
+    const blacklistedCount = parsed.filter(l => blacklisted.has(l.email)).length
+    const unique = parsed.filter(l => !existingEmails.has(l.email) && !blacklisted.has(l.email))
 
     if (unique.length === 0) {
-      show('⚠️', 'Alle leads findes allerede', `${duplicates.length} dubletter sprunget over`)
+      show('⚠️', 'Ingen nye leads at importere', `${duplicates.length} dubletter · ${blacklistedCount} på blacklist`)
       setImporting(false)
       return
     }
@@ -63,9 +59,10 @@ export default function Import() {
     const { error } = await supabase.from('leads').insert(unique)
     if (error) { show('❌', 'Fejl ved import', error.message); setImporting(false); return }
 
-    const msg = duplicates.length > 0
-      ? `${unique.length} importeret · ${duplicates.length} dubletter sprunget over`
-      : 'Gå til "Alle leads" for at se dem'
+    const parts = []
+    if (duplicates.length > 0) parts.push(`${duplicates.length} dubletter`)
+    if (blacklistedCount > 0) parts.push(`${blacklistedCount} på blacklist`)
+    const msg = parts.length > 0 ? parts.join(' · ') + ' sprunget over' : 'Gå til "Alle leads" for at se dem'
 
     show('✅', `${unique.length} leads importeret!`, msg)
     refresh()
@@ -81,18 +78,14 @@ export default function Import() {
 
     const email = (data.get('email') as string).toLowerCase().trim()
 
-    // Tjek om email allerede findes
-    const { data: existing } = await supabase
-      .from('leads')
-      .select('id')
-      .eq('dealer_id', user.id)
-      .eq('email', email)
-      .single()
-
-    if (existing) {
-      show('⚠️', 'Lead findes allerede', `${email} er allerede i din database`)
+    const blacklisted = await getBlacklistedEmails(user.id)
+    if (blacklisted.has(email)) {
+      show('🚫', 'Email er på blacklisten', 'Denne person har afmeldt sig')
       return
     }
+
+    const { data: existing } = await supabase.from('leads').select('id').eq('dealer_id', user.id).eq('email', email).single()
+    if (existing) { show('⚠️', 'Lead findes allerede', `${email} er allerede i din database`); return }
 
     const { error } = await supabase.from('leads').insert({
       dealer_id: user.id,
@@ -182,7 +175,7 @@ export default function Import() {
             Carlos Mendez,carlos@gmail.com,+34612001001,BMW 520d,127<br/>
             María González,maria@hotmail.com,+34612002002,Mercedes GLC,94
           </div>
-          <div style={{fontSize:11,color:'var(--text2)',marginTop:10}}>Dubletter springes automatisk over ved import.</div>
+          <div style={{fontSize:11,color:'var(--text2)',marginTop:10}}>Dubletter og blacklistede emails springes automatisk over.</div>
         </div>
       </div>
     </div>
