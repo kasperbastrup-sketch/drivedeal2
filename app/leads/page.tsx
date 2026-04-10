@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import ComposeModal from '@/components/ComposeModal'
 import { useToast } from '@/components/Toast'
-import { useRefresh } from '@/components/AppShell'
+import { useRefresh } from "@/components/AppShell"
+import { autoMarkColdLeads } from "@/lib/autoMarkCold"
 
 type LeadStatus = 'cold' | 'warm' | 'sent' | 'booked' | 'replied'
 
@@ -47,7 +48,8 @@ export default function Leads() {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
-    const { data } = await supabase.from('leads').select('*').eq('dealer_id', user.id).order('created_at', { ascending: false })
+    await autoMarkColdLeads(user.id)
+    const { data } = await supabase.from("leads").select('*').eq('dealer_id', user.id).order('created_at', { ascending: false })
     setLeads(data || [])
     setLoading(false)
   }
