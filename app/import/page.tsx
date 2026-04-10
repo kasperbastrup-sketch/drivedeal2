@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { useToast } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
 import { useRefresh } from '@/components/AppShell'
-import { getBlacklistedEmails } from '@/lib/blacklist'
+import { getBlacklistedEmails } from "@/lib/blacklist"
+import { calculateScore } from "@/lib/scoreLeads"
 
 export default function Import() {
   const { show } = useToast()
@@ -33,7 +34,7 @@ export default function Import() {
         days_since_contact: parseInt(obj['dage'] || obj['days'] || obj['dias'] || '90') || 90,
         source: obj['kilde'] || obj['source'] || 'CSV Import',
         status: 'cold',
-        score: Math.floor(Math.random() * 40) + 40,
+        score: calculateScore(obj["bil"] || obj["car"] || obj["coche"] || obj["interesse"] || values[3] || "", parseInt(obj["dage"] || obj["days"] || obj["dias"] || "90") || 90, obj["kilde"] || obj["source"] || "CSV Import"),
       }
     }).filter(l => l.email)
 
