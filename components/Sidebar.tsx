@@ -1,5 +1,7 @@
 'use client'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 const navItems = [
   { group: 'Overblik', items: [
@@ -24,6 +26,29 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [dealerName, setDealerName] = useState('Min forhandler')
+  const [initials, setInitials] = useState('DD')
+
+  useEffect(() => {
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase.from('dealers').select('dealer_name, name').eq('id', user.id).single()
+        if (data) {
+          const name = data.dealer_name || data.name || 'Min forhandler'
+          setDealerName(name)
+          const parts = name.split(' ')
+          setInitials((parts[0][0] + (parts[1]?.[0] || '')).toUpperCase())
+        }
+      }
+    }
+    loadUser()
+  }, [])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   return (
     <aside className="sidebar">
@@ -54,11 +79,11 @@ export default function Sidebar() {
       </nav>
 
       <div style={{padding:'10px 8px',borderTop:'1px solid var(--border)'}}>
-        <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:9,padding:'10px 12px',display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,var(--gold3),var(--gold))',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-head)',fontSize:11,fontWeight:700,color:'#1a1100',flexShrink:0}}>MB</div>
+        <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:9,padding:'10px 12px',display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={handleLogout}>
+          <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,var(--gold3),var(--gold))',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-head)',fontSize:11,fontWeight:700,color:'#1a1100',flexShrink:0}}>{initials}</div>
           <div>
-            <div style={{fontSize:12,fontWeight:600}}>Mercedes BCN</div>
-            <div style={{fontSize:10,color:'var(--gold)',display:'flex',alignItems:'center',gap:4}}><span className="plan-dot"></span>Pro Plan · Aktiv</div>
+            <div style={{fontSize:12,fontWeight:600}}>{dealerName}</div>
+            <div style={{fontSize:10,color:'var(--gold)',display:'flex',alignItems:'center',gap:4}}><span className="plan-dot"></span>Log ud</div>
           </div>
         </div>
       </div>
