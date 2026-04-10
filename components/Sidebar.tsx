@@ -39,6 +39,7 @@ export default function Sidebar({ leadCount, campaignCount }: Props) {
     { group: 'Leads', items: [
       { label: 'Alle leads', path: '/leads', badge: leadCount > 0 ? leadCount.toString() : undefined },
       { label: 'Importer leads', path: '/import' },
+      { label: 'Blacklist', path: '/blacklist' },
     ]},
     { group: 'Outreach', items: [
       { label: 'Kampagner', path: '/campaigns', badge: campaignCount > 0 ? campaignCount.toString() : undefined },
