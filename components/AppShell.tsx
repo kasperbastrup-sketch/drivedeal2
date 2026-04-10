@@ -4,6 +4,7 @@ import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { ToastProvider } from './Toast'
 import CampaignModal from './CampaignModal'
+import OnboardingWizard from './OnboardingWizard'
 import { supabase } from '@/lib/supabase'
 
 interface RefreshCtx { refresh: () => void }
@@ -29,6 +30,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <RefreshContext.Provider value={{ refresh: loadCounts }}>
       <ToastProvider>
+        <OnboardingWizard onComplete={loadCounts} />
         {showCampaign && <CampaignModal onClose={() => { setShowCampaign(false); loadCounts() }} />}
         <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
           <Sidebar leadCount={leadCount} campaignCount={campaignCount} />
