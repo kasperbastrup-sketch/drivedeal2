@@ -2,9 +2,11 @@
 import { useState } from 'react'
 import { useToast } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
+import { useRefresh } from '@/components/AppShell'
 
 export default function Import() {
   const { show } = useToast()
+  const { refresh } = useRefresh()
   const [dragging, setDragging] = useState(false)
   const [importing, setImporting] = useState(false)
 
@@ -16,7 +18,7 @@ export default function Import() {
     const text = await file.text()
     const lines = text.split('\n').filter(l => l.trim())
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
-    
+
     const leads = lines.slice(1).map(line => {
       const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
       const obj: Record<string,string> = {}
@@ -40,6 +42,7 @@ export default function Import() {
     if (error) { show('❌', 'Fejl ved import', error.message); setImporting(false); return }
 
     show('✅', `${leads.length} leads importeret!`, 'Gå til "Alle leads" for at se dem')
+    refresh()
     setImporting(false)
   }
 
@@ -64,6 +67,7 @@ export default function Import() {
 
     if (error) { show('❌', 'Fejl', error.message); return }
     show('✅', 'Lead tilføjet!', 'Klar til AI outreach')
+    refresh()
     form.reset()
   }
 

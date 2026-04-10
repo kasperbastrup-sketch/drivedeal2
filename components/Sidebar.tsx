@@ -3,34 +3,27 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function Sidebar() {
+interface Props { leadCount: number; campaignCount: number }
+
+export default function Sidebar({ leadCount, campaignCount }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [dealerName, setDealerName] = useState('Min forhandler')
   const [initials, setInitials] = useState('DD')
-  const [leadCount, setLeadCount] = useState(0)
-  const [campaignCount, setCampaignCount] = useState(0)
 
   useEffect(() => {
-    async function loadData() {
+    async function loadDealer() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-
-      const { data: dealer } = await supabase.from('dealers').select('dealer_name, name').eq('id', user.id).single()
-      if (dealer) {
-        const name = dealer.dealer_name || dealer.name || 'Min forhandler'
+      const { data } = await supabase.from('dealers').select('dealer_name, name').eq('id', user.id).single()
+      if (data) {
+        const name = data.dealer_name || data.name || 'Min forhandler'
         setDealerName(name)
         const parts = name.split(' ')
         setInitials((parts[0][0] + (parts[1]?.[0] || '')).toUpperCase())
       }
-
-      const { count: leads } = await supabase.from('leads').select('*', { count: 'exact', head: true }).eq('dealer_id', user.id)
-      setLeadCount(leads || 0)
-
-      const { count: campaigns } = await supabase.from('campaigns').select('*', { count: 'exact', head: true }).eq('dealer_id', user.id)
-      setCampaignCount(campaigns || 0)
     }
-    loadData()
+    loadDealer()
   }, [])
 
   async function handleLogout() {

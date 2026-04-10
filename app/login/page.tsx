@@ -14,18 +14,8 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError('')
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (signInError) {
-      setError('Forkert email eller password')
-      setLoading(false)
-      return
-    }
-
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError) { setError('Forkert email eller password'); setLoading(false); return }
     router.push('/')
   }
 
@@ -47,7 +37,10 @@ export default function Login() {
           <div className="label" style={{marginTop:0}}>Email</div>
           <input className="field-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="din@email.com" style={{width:'100%',marginBottom:12}} required/>
 
-          <div className="label">Password</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6,marginTop:14}}>
+            <div className="label" style={{marginTop:0,marginBottom:0}}>Password</div>
+            <a href="/reset-password" style={{fontSize:11,color:'var(--gold)'}}>Glemt password?</a>
+          </div>
           <input className="field-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" style={{width:'100%',marginBottom:20}} required/>
 
           {error && <div style={{fontSize:12,color:'var(--red)',marginBottom:12,padding:'8px 12px',background:'var(--redbg)',borderRadius:7}}>{error}</div>}
