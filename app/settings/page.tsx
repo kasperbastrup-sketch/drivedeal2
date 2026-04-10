@@ -3,6 +3,22 @@ import { useState, useEffect } from 'react'
 import { useToast } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
 
+const currencies = [
+  { code: 'EUR', symbol: '€', name: 'Euro (Spanien, Tyskland, Frankrig)' },
+  { code: 'DKK', symbol: 'kr', name: 'Danske kroner' },
+  { code: 'SEK', symbol: 'kr', name: 'Svenske kroner' },
+  { code: 'NOK', symbol: 'kr', name: 'Norske kroner' },
+  { code: 'GBP', symbol: '£', name: 'Britiske pund' },
+  { code: 'USD', symbol: '$', name: 'Amerikanske dollars' },
+  { code: 'CHF', symbol: 'CHF', name: 'Schweiziske franc' },
+  { code: 'PLN', symbol: 'zł', name: 'Polske zloty' },
+]
+
+const avgCarPrices: Record<string,number> = {
+  EUR: 35000, DKK: 260000, SEK: 380000, NOK: 350000,
+  GBP: 30000, USD: 38000, CHF: 42000, PLN: 150000,
+}
+
 export default function Settings() {
   const [tab, setTab] = useState('general')
   const { show } = useToast()
@@ -13,6 +29,8 @@ export default function Settings() {
     sender_name: '',
     booking_link: '',
     phone: '',
+    currency: 'EUR',
+    avg_car_price: '35000',
   })
 
   useEffect(() => {
@@ -26,6 +44,8 @@ export default function Settings() {
         sender_name: data.sender_name || '',
         booking_link: data.booking_link || '',
         phone: data.phone || '',
+        currency: data.currency || 'EUR',
+        avg_car_price: data.avg_car_price?.toString() || avgCarPrices[data.currency || 'EUR'].toString(),
       })
     }
     load()
@@ -35,15 +55,20 @@ export default function Settings() {
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
-    const { error } = await supabase.from('dealers').update(form).eq('id', user.id)
+    const { error } = await supabase.from('dealers').update({
+      ...form,
+      avg_car_price: parseInt(form.avg_car_price),
+    }).eq('id', user.id)
     if (error) { show('❌', 'Fejl ved gemning', error.message); setSaving(false); return }
-    show('💾', 'Indstillinger gemt', 'Alle ændringer er gemt')
+    show('💾', 'Indstillinger gemt', 'Dashboard opdaterer med din valuta')
     setSaving(false)
   }
 
   function toggle(e: React.MouseEvent<HTMLButtonElement>) {
     const b = e.currentTarget; b.className=`toggle ${b.classList.contains('on')?'off':'on'}`
   }
+
+  const selectedCurrency = currencies.find(c => c.code === form.currency)
 
   return (
     <div>
@@ -75,6 +100,53 @@ export default function Settings() {
                 />
               </div>
             ))}
+
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:500}}>Valuta</div>
+                <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Bruges til estimeret omsætning på dashboard</div>
+              </div>
+              <select
+                className="field-select"
+                value={form.currency}
+                onChange={e=>{
+                  const newCurrency = e.target.value
+                  setForm(prev=>({
+                    ...prev,
+                    currency: newCurrency,
+                    avg_car_price: avgCarPrices[newCurrency].toString()
+                  }))
+                }}
+                style={{width:260}}
+              >
+                {currencies.map(c=><option key={c.code} value={c.code}>{c.symbol} — {c.name}</option>)}
+              </select>
+            </div>
+
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:500}}>Gennemsnitlig bilpris</div>
+                <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Bruges til at beregne estimeret omsætning</div>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:13,color:'var(--text2)'}}>{selectedCurrency?.symbol}</span>
+                <input
+                  className="field-input"
+                  type="number"
+                  value={form.avg_car_price}
+                  onChange={e=>setForm(prev=>({...prev,avg_car_price:e.target.value}))}
+                  style={{width:140,textAlign:'right'}}
+                />
+              </div>
+            </div>
+
+            <div style={{background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.2)',borderRadius:9,padding:12,marginTop:14}}>
+              <div style={{fontSize:11,color:'var(--gold)',fontWeight:600,marginBottom:4}}>Estimeringsformel</div>
+              <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.7}}>
+                Estimeret omsætning = Bookinger × Gennemsnitlig bilpris × 40% konverteringsrate<br/>
+                Eks: 10 bookinger × {parseInt(form.avg_car_price).toLocaleString('da')} {selectedCurrency?.symbol} × 40% = <strong style={{color:'var(--gold)'}}>{(10 * parseInt(form.avg_car_price||'0') * 0.4).toLocaleString('da')} {selectedCurrency?.symbol}</strong>
+              </div>
+            </div>
           </div>
           <button className="btn btn-gold" onClick={save} disabled={saving}>
             {saving ? 'Gemmer...' : 'Gem indstillinger'}
@@ -91,7 +163,7 @@ export default function Settings() {
           </div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
             <div><div style={{fontSize:13,fontWeight:500}}>Primært email-sprog</div></div>
-            <select className="field-select"><option>Spansk</option><option>Dansk</option><option>Engelsk</option><option>Tysk</option></select>
+            <select className="field-select"><option>Spansk</option><option>Dansk</option><option>Engelsk</option><option>Norsk</option><option>Svensk</option><option>Tysk</option></select>
           </div>
           {[['Auto-personalisering','Brug navn, bil og tidspunkt i emails',true],['AI-genereret emne-linje','AI vælger bedst mulig',true],['Urgency-trigger','Tidsbegrænset tilbud i email 3',true],['Auto-stop ved booking','Stop sekvens når lead booker',true]].map(([l,d,on])=>(
             <div key={l as string} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>

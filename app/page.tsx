@@ -6,22 +6,37 @@ const chartData = [22,38,44,31,55,42,67,58,72,48,83,91,77,124]
 const maxChart = Math.max(...chartData)
 
 const funnel = [
-  {label:'Sendt',val:0,pct:100,color:'var(--blue)',key:'sent'},
-  {label:'Åbnet',val:0,pct:43,color:'var(--gold)',key:'opened'},
-  {label:'Klikket',val:0,pct:22,color:'var(--amber)',key:'clicked'},
-  {label:'Svarede',val:0,pct:14,color:'var(--gold3)',key:'replied'},
-  {label:'Booket',val:0,pct:7,color:'var(--green)',key:'booked'},
-  {label:'Salg',val:0,pct:3,color:'var(--gold)',key:'sold'},
+  {label:'Sendt',color:'var(--blue)'},
+  {label:'Åbnet',color:'var(--gold)'},
+  {label:'Klikket',color:'var(--amber)'},
+  {label:'Svarede',color:'var(--gold3)'},
+  {label:'Booket',color:'var(--green)'},
+  {label:'Salg',color:'var(--gold)'},
 ]
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ cold: 0, total: 0, sent: 0, booked: 0 })
+  const [stats, setStats] = useState({ cold:0, total:0, sent:0, booked:0 })
   const [activity, setActivity] = useState<{color:string;text:string;time:string}[]>([])
+  const [currency, setCurrency] = useState('EUR')
+  const [symbol, setSymbol] = useState('€')
+  const [avgPrice, setAvgPrice] = useState(35000)
+
+  const symbols: Record<string,string> = {
+    EUR:'€', DKK:'kr', SEK:'kr', NOK:'kr', GBP:'£', USD:'$', CHF:'CHF', PLN:'zł'
+  }
 
   useEffect(() => {
-    async function loadStats() {
+    async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
+      const { data: dealer } = await supabase.from('dealers').select('currency, avg_car_price').eq('id', user.id).single()
+      if (dealer) {
+        const curr = dealer.currency || 'EUR'
+        setCurrency(curr)
+        setSymbol(symbols[curr] || '€')
+        setAvgPrice(dealer.avg_car_price || 35000)
+      }
 
       const { data: leads } = await supabase.from('leads').select('status, name, car, created_at').eq('dealer_id', user.id)
       if (!leads) return
@@ -33,14 +48,17 @@ export default function Dashboard() {
       setStats({ cold, total: leads.length, sent, booked })
 
       const recent = leads.slice(0, 6).map(l => ({
-        color: l.status === 'booked' ? 'var(--green)' : l.status === 'sent' ? 'var(--gold)' : 'var(--blue)',
-        text: l.status === 'booked' ? `${l.name} bookede prøvekørsel — ${l.car}` : l.status === 'sent' ? `AI email sendt til ${l.name} — ${l.car}` : `${l.name} tilføjet som lead — ${l.car}`,
+        color: l.status==='booked'?'var(--green)':l.status==='sent'?'var(--gold)':'var(--blue)',
+        text: l.status==='booked'?`${l.name} bookede prøvekørsel — ${l.car}`:l.status==='sent'?`AI email sendt til ${l.name} — ${l.car}`:`${l.name} tilføjet som lead — ${l.car}`,
         time: new Date(l.created_at).toLocaleDateString('da-DK'),
       }))
       setActivity(recent)
     }
-    loadStats()
+    load()
   }, [])
+
+  const estimatedRevenue = Math.round(stats.booked * avgPrice * 0.4)
+  const funnelVals = [stats.sent, Math.round(stats.sent*.43), Math.round(stats.sent*.22), Math.round(stats.sent*.14), stats.booked, Math.round(stats.booked*.4)]
 
   return (
     <div>
@@ -101,21 +119,24 @@ export default function Dashboard() {
           <div className="panel" style={{marginBottom:14}}>
             <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>Konverteringstragt</div>
             {funnel.map((f,i)=>{
-              const vals = [stats.sent, Math.round(stats.sent*.43), Math.round(stats.sent*.22), Math.round(stats.sent*.14), stats.booked, Math.round(stats.booked*.4)]
-              const pct = stats.sent > 0 ? (vals[i]/stats.sent)*100 : 0
+              const val = funnelVals[i] || 0
+              const pct = funnelVals[0] > 0 ? (val/funnelVals[0])*100 : 0
               return (
                 <div key={f.label} style={{display:'flex',alignItems:'center',gap:10,marginBottom:9}}>
                   <div style={{fontSize:11,color:'var(--text2)',width:72,flexShrink:0}}>{f.label}</div>
                   <div style={{flex:1,height:5,background:'var(--surface3)',borderRadius:3,overflow:'hidden'}}>
-                    <div style={{width:Math.max(pct,vals[i]>0?5:0)+'%',height:'100%',background:f.color,borderRadius:3}}></div>
+                    <div style={{width:Math.max(pct,val>0?3:0)+'%',height:'100%',background:f.color,borderRadius:3}}></div>
                   </div>
-                  <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--font-head)',width:32,textAlign:'right',color:f.color}}>{vals[i]}</div>
+                  <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--font-head)',width:32,textAlign:'right',color:f.color}}>{val}</div>
                 </div>
               )
             })}
             <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--border)'}}>
-              <div style={{fontSize:10,color:'var(--text3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'1px',fontWeight:600}}>AI-genereret omsætning (est.)</div>
-              <div style={{fontSize:38,fontWeight:800,color:'var(--gold)',letterSpacing:'-2px',fontFamily:'var(--font-head)',lineHeight:1}}>€ {(stats.booked * 12000).toLocaleString('da')}</div>
+              <div style={{fontSize:10,color:'var(--text3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'1px',fontWeight:600}}>Estimeret omsætning</div>
+              <div style={{fontSize:11,color:'var(--text2)',marginBottom:6}}>{stats.booked} bookinger × {avgPrice.toLocaleString('da')} {symbol} × 40%</div>
+              <div style={{fontSize:38,fontWeight:800,color:'var(--gold)',letterSpacing:'-2px',fontFamily:'var(--font-head)',lineHeight:1}}>
+                {currency === 'EUR' ? '€' : ''}{estimatedRevenue.toLocaleString('da')}{currency !== 'EUR' ? ' '+symbol : ''}
+              </div>
             </div>
           </div>
 
