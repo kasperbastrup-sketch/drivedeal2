@@ -91,6 +91,6 @@ export default function Sidebar({ leadCount, campaignCount }: Props) {
           </div>
         </div>
       </div>
-    </aside>
+    <div style={{padding:"8px 16px",textAlign:"center"}}><a href="/privacy" target="_blank" style={{fontSize:10,color:"var(--text3)",textDecoration:"none",letterSpacing:".5px"}}>Privatlivspolitik</a></div></aside>
   )
 }
