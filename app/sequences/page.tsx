@@ -262,7 +262,7 @@ export default function Sequences() {
       )}
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-        <div className="font-head" style={{fontSize:14,fontWeight:700}}>Email sekvenser</div>
+        <div className="font-head" style={{fontSize:14,fontWeight:700}}>Email sekvenser — automatisk opfølgning til leads der ikke har svaret</div>
         <button className="btn btn-gold" onClick={()=>setShowNew(true)}>+ Ny sekvens</button>
       </div>
 

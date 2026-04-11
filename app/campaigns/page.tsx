@@ -85,7 +85,7 @@ export default function Campaigns() {
       )}
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-        <div className="font-head" style={{fontSize:14,fontWeight:700}}>AI kampagner</div>
+        <div className="font-head" style={{fontSize:14,fontWeight:700}}>AI kampagner — ekstra udsendelse ved særlige tilbud</div>
         <button className="btn btn-gold" onClick={()=>{
           const btn = document.querySelector('[data-campaign-trigger]') as HTMLButtonElement
           if (btn) btn.click()
