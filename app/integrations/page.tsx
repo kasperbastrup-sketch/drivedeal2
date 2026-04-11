@@ -88,7 +88,7 @@ export default function Integrations() {
             className="field-input"
             type="number"
             value={dailyLimit}
-            onChange={e=>setDailyLimit(e.target.value)}
+            onChange={e=>{const v=parseInt(e.target.value);if(v>200)setDailyLimit("200");else if(v<1)setDailyLimit("1");else setDailyLimit(e.target.value)}}
             style={{width:80,textAlign:'center'}} max="200"
           />
         </div>
