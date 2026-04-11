@@ -4,30 +4,30 @@ import { useToast } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
 import { useLang } from '@/lib/useLang'
 
-const defaultTemplates = [
-  {key:'proeve',icon:'🚗',name:'Prøvekørsel invitation',rate:'Åbningsrate: 52% · Booking-rate: 8.2%',
-   subject:'{{fornavn}}, din {{bil}} venter på dig 🚗',
-   body:`Hej {{fornavn}},\n\nDet er nu {{dage_siden}} dage siden du kiggede på en {{bil}} hos os, og jeg ville høre om du stadig overvejer det?\n\nVi har faktisk en rigtig flot {{bil}} klar til prøvekørsel denne uge — helt uforpligtende.\n\nHar du 20 minutter til en prøvetur?\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
-  {key:'tilbud',icon:'💰',name:'Personligt tilbud',rate:'Åbningsrate: 48% · Booking-rate: 6.8%',
-   subject:'Et særligt tilbud til dig, {{fornavn}}',
-   body:`Hej {{fornavn}},\n\nJeg har et eksklusivt tilbud til dig på den {{bil}} du kiggede på.\n\nDette tilbud er kun tilgængeligt denne uge — vil du høre mere?\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
-  {key:'check_in',icon:'🤔',name:'Blød check-in',rate:'Åbningsrate: 61% · Svar-rate: 14%',
-   subject:'Hej {{fornavn}} — finder du stadig drømmebilen?',
-   body:`Hej {{fornavn}},\n\nJeg tænkte på dig og ville bare høre om du stadig leder efter en {{bil}}?\n\nIngen forpligtelse — jeg er bare her hvis du har spørgsmål.\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
-  {key:'ny_model',icon:'✨',name:'Ny model lancering',rate:'Åbningsrate: 44% · Booking-rate: 5.1%',
-   subject:'Ny model er ankommet — jeg tænkte på dig, {{fornavn}}',
-   body:`Hej {{fornavn}},\n\nVi har netop fået en spændende ny {{bil}} ind, og jeg tænkte straks på dig.\n\nKunne du tænke dig at komme og se den?\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
-  {key:'ev',icon:'⚡',name:'EV konvertering',rate:'Åbningsrate: 58% · Booking-rate: 9.8%',
-   subject:'{{fornavn}}, er du klar til fremtiden? ⚡',
-   body:`Hej {{fornavn}},\n\nElbiler er ikke længere fremtiden — de er nutiden. Og jeg tror en el-version af din drømmebil kunne overraske dig.\n\nVil du prøve en gratis testtur?\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
-]
-
 export default function Templates() {
   const [selected, setSelected] = useState('proeve')
   const [templates, setTemplates] = useState<Record<string,{subject:string;body:string}>>({})
   const [saving, setSaving] = useState(false)
   const { show } = useToast()
   const { tr } = useLang()
+
+  const defaultTemplates = [
+    {key:'proeve',icon:'🚗',name:tr.tpl1Name,rate:tr.tpl1Rate,
+     subject:'{{fornavn}}, din {{bil}} venter på dig 🚗',
+     body:`Hej {{fornavn}},\n\nDet er nu {{dage_siden}} dage siden du kiggede på en {{bil}} hos os, og jeg ville høre om du stadig overvejer det?\n\nVi har faktisk en rigtig flot {{bil}} klar til prøvekørsel denne uge — helt uforpligtende.\n\nHar du 20 minutter til en prøvetur?\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
+    {key:'tilbud',icon:'💰',name:tr.tpl2Name,rate:tr.tpl2Rate,
+     subject:'Et særligt tilbud til dig, {{fornavn}}',
+     body:`Hej {{fornavn}},\n\nJeg har et eksklusivt tilbud til dig på den {{bil}} du kiggede på.\n\nDette tilbud er kun tilgængeligt denne uge — vil du høre mere?\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
+    {key:'check_in',icon:'🤔',name:tr.tpl3Name,rate:tr.tpl3Rate,
+     subject:'Hej {{fornavn}} — finder du stadig drømmebilen?',
+     body:`Hej {{fornavn}},\n\nJeg tænkte på dig og ville bare høre om du stadig leder efter en {{bil}}?\n\nIngen forpligtelse — jeg er bare her hvis du har spørgsmål.\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
+    {key:'ny_model',icon:'✨',name:tr.tpl4Name,rate:tr.tpl4Rate,
+     subject:'Ny model er ankommet — jeg tænkte på dig, {{fornavn}}',
+     body:`Hej {{fornavn}},\n\nVi har netop fået en spændende ny {{bil}} ind, og jeg tænkte straks på dig.\n\nKunne du tænke dig at komme og se den?\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
+    {key:'ev',icon:'⚡',name:tr.tpl5Name,rate:tr.tpl5Rate,
+     subject:'{{fornavn}}, er du klar til fremtiden? ⚡',
+     body:`Hej {{fornavn}},\n\nElbiler er ikke længere fremtiden — de er nutiden. Og jeg tror en el-version af din drømmebil kunne overraske dig.\n\nVil du prøve en gratis testtur?\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
+  ]
 
   useEffect(() => { loadTemplates() }, [])
 
@@ -84,28 +84,22 @@ export default function Templates() {
         <div className="panel">
           <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:4}}>{selectedTpl?.icon} {selectedTpl?.name}</div>
           <div style={{fontSize:11,color:'var(--text2)',marginBottom:14}}>{selectedTpl?.rate}</div>
-
           <div className="label" style={{marginTop:0}}>{tr.subjectLine}</div>
           <input className="field-input" value={current.subject} onChange={e=>setTemplates(prev=>({...prev,[selected]:{...prev[selected],subject:e.target.value}}))} style={{width:'100%'}}/>
-
           <div className="label">{tr.emailText}</div>
           <textarea className="field-textarea" value={current.body} onChange={e=>setTemplates(prev=>({...prev,[selected]:{...prev[selected],body:e.target.value}}))} style={{minHeight:260}}/>
-
           <div style={{marginTop:8,fontSize:11,color:'var(--text2)'}}>
             {tr.variables}: {['{{fornavn}}','{{bil}}','{{dage_siden}}','{{afsender}}','{{forhandler}}'].map(v=>(
               <code key={v} style={{fontFamily:'var(--font-mono)',fontSize:10,background:'var(--surface2)',padding:'1px 5px',borderRadius:3,marginRight:4}}>{v}</code>
             ))}
           </div>
-
           <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}>
             <button className="btn btn-ghost" onClick={()=>{
               const def = defaultTemplates.find(t=>t.key===selected)
               if(def) setTemplates(prev=>({...prev,[selected]:{subject:def.subject,body:def.body}}))
               show('↩️', tr.reset, '')
             }}>{tr.reset}</button>
-            <button className="btn btn-gold" onClick={saveTemplate} disabled={saving}>
-              {saving?tr.saving:tr.saveTemplate}
-            </button>
+            <button className="btn btn-gold" onClick={saveTemplate} disabled={saving}>{saving?tr.saving:tr.saveTemplate}</button>
           </div>
         </div>
       </div>

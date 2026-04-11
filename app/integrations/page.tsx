@@ -30,16 +30,14 @@ export default function Integrations() {
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
-    await supabase.from('dealers').update({
-      antispam, email_tracking: tracking, daily_limit: parseInt(dailyLimit),
-    }).eq('id', user.id)
+    await supabase.from('dealers').update({ antispam, email_tracking: tracking, daily_limit: parseInt(dailyLimit) }).eq('id', user.id)
     show('💾', tr.saveSettings, '')
     setSaving(false)
   }
 
   function connectCRM(name: string) {
-    show('🔗', `${name}`, '...')
-    setTimeout(() => show('✅', `${name}`, ''), 2500)
+    show('🔗', name, '...')
+    setTimeout(() => show('✅', name, ''), 2500)
   }
 
   return (
@@ -51,15 +49,13 @@ export default function Integrations() {
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>{tr.antispamFilter}</div>
-              <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>
-                {antispam ? tr.antispamOn : tr.antispamOff}
-              </div>
-              {antispam ? (
+              <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>{antispam?tr.antispamOn:tr.antispamOff}</div>
+              {antispam?(
                 <div style={{marginTop:8,display:'inline-flex',alignItems:'center',gap:6,background:'var(--greenbg)',border:'1px solid rgba(76,175,130,.2)',borderRadius:6,padding:'4px 10px'}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:'var(--green)',display:'inline-block'}}></span>
                   <span style={{fontSize:11,color:'var(--green)',fontWeight:500}}>{tr.protectedFromSpam}</span>
                 </div>
-              ) : (
+              ):(
                 <div style={{marginTop:8,display:'inline-flex',alignItems:'center',gap:6,background:'var(--redbg)',border:'1px solid rgba(224,85,85,.2)',borderRadius:6,padding:'4px 10px'}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:'var(--red)',display:'inline-block'}}></span>
                   <span style={{fontSize:11,color:'var(--red)',fontWeight:500}}>{tr.noSpamProtection}</span>
@@ -101,10 +97,10 @@ export default function Integrations() {
 
       <div className="panel">
         <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.crmSystems}</div>
-        {[['HubSpot','Synk leads begge veje'],['Salesforce','Enterprise integration'],['Pipedrive','Pipeline synkronisering'],['AutoIt / CDK','Bil-specifik DMS']].map(([n,d])=>(
-          <div key={n} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
-            <div><div style={{fontSize:13,fontWeight:500}}>{n}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{d}</div></div>
-            <button className="btn btn-ghost btn-sm" onClick={()=>connectCRM(n)}>Forbind</button>
+        {tr.crmItems.map(item=>(
+          <div key={item.name} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
+            <div><div style={{fontSize:13,fontWeight:500}}>{item.name}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{item.desc}</div></div>
+            <button className="btn btn-ghost btn-sm" onClick={()=>connectCRM(item.name)}>{tr.connect}</button>
           </div>
         ))}
       </div>
@@ -112,9 +108,9 @@ export default function Integrations() {
       <div className="panel">
         <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.bookingCalendar}</div>
         {[
-          {l:'Calendly',d:'Booking link',n:<button className="btn btn-ghost btn-sm" onClick={()=>connectCRM('Calendly')}>Forbind</button>},
-          {l:'Google Kalender',d:'Sync prøveture',n:<span className="pill pill-green">● {tr.active}</span>},
-          {l:'Booking link',d:'Indsættes i emails',n:<input className="field-input" placeholder="calendly.com/..." style={{width:180}}/>},
+          {l:'Calendly',d:'Booking link',n:<button className="btn btn-ghost btn-sm" onClick={()=>connectCRM('Calendly')}>{tr.connect}</button>},
+          {l:'Google Kalender',d:'Sync',n:<span className="pill pill-green">● {tr.active}</span>},
+          {l:'Booking link',d:'Email',n:<input className="field-input" placeholder="calendly.com/..." style={{width:180}}/>},
         ].map(r=>(
           <div key={r.l} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
             <div><div style={{fontSize:13,fontWeight:500}}>{r.l}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{r.d}</div></div>
@@ -125,10 +121,10 @@ export default function Integrations() {
 
       <div className="panel">
         <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.notifications}</div>
-        {[['Email ved lead-svar','Straks notifikation',true],['Daglig rapport','Kl. 08:00',true],['Booking notifikation','Ved prøvetur',true],['Ugentlig rapport','Fredag kl. 17:00',false]].map(([l,d,on])=>(
-          <div key={l as string} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
-            <div><div style={{fontSize:13,fontWeight:500}}>{l}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{d}</div></div>
-            <button className={`toggle ${on?'on':'off'}`} onClick={e=>{const b=e.currentTarget;b.className=`toggle ${b.classList.contains('on')?'off':'on'}`}}></button>
+        {tr.notifItems.map((l,i)=>(
+          <div key={l} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
+            <div><div style={{fontSize:13,fontWeight:500}}>{l}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{tr.notifDescs[i]}</div></div>
+            <button className={`toggle ${i<3?'on':'off'}`} onClick={e=>{const b=e.currentTarget;b.className=`toggle ${b.classList.contains('on')?'off':'on'}`}}></button>
           </div>
         ))}
       </div>

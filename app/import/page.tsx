@@ -17,7 +17,7 @@ export default function Import() {
   async function processFile(file: File) {
     setImporting(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { show('❌', 'Ikke logget ind', ''); setImporting(false); return }
+    if (!user) { show('❌', 'Error', ''); setImporting(false); return }
 
     const text = await file.text()
     const lines = text.split('\n').filter(l => l.trim())
@@ -35,13 +35,12 @@ export default function Import() {
         name: obj['navn'] || obj['name'] || obj['nombre'] || values[0] || 'Ukendt',
         email: (obj['email'] || obj['correo'] || values[1] || '').toLowerCase().trim(),
         phone: obj['telefon'] || obj['phone'] || obj['telefono'] || values[2] || '',
-        car, days_since_contact: days, source,
-        status: 'cold',
+        car, days_since_contact: days, source, status: 'cold',
         score: calculateScore(car, days, source),
       }
     }).filter(l => l.email)
 
-    if (parsed.length === 0) { show('⚠️', 'Ingen leads fundet', 'Tjek CSV kolonner'); setImporting(false); return }
+    if (parsed.length === 0) { show('⚠️', 'Error', ''); setImporting(false); return }
 
     const [blacklisted, existing] = await Promise.all([
       getBlacklistedEmails(user.id),
@@ -53,19 +52,15 @@ export default function Import() {
     const blacklistedCount = parsed.filter(l => blacklisted.has(l.email)).length
     const unique = parsed.filter(l => !existingEmails.has(l.email) && !blacklisted.has(l.email))
 
-    if (unique.length === 0) {
-      show('⚠️', 'Ingen nye leads', `${duplicates.length} dubletter · ${blacklistedCount} på blacklist`)
-      setImporting(false)
-      return
-    }
+    if (unique.length === 0) { show('⚠️', `${duplicates.length} dup · ${blacklistedCount} blacklist`, ''); setImporting(false); return }
 
     const { error } = await supabase.from('leads').insert(unique)
-    if (error) { show('❌', 'Fejl ved import', error.message); setImporting(false); return }
+    if (error) { show('❌', 'Error', error.message); setImporting(false); return }
 
     const parts = []
-    if (duplicates.length > 0) parts.push(`${duplicates.length} dubletter`)
-    if (blacklistedCount > 0) parts.push(`${blacklistedCount} på blacklist`)
-    show('✅', `${unique.length} leads importeret!`, parts.length > 0 ? parts.join(' · ') + ' sprunget over' : '')
+    if (duplicates.length > 0) parts.push(`${duplicates.length} dup`)
+    if (blacklistedCount > 0) parts.push(`${blacklistedCount} blacklist`)
+    show('✅', `${unique.length} leads!`, parts.join(' · '))
     refresh()
     setImporting(false)
   }
@@ -75,38 +70,42 @@ export default function Import() {
     const form = e.currentTarget
     const data = new FormData(form)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { show('❌', 'Ikke logget ind', ''); return }
+    if (!user) return
 
     const email = (data.get('email') as string).toLowerCase().trim()
     const blacklisted = await getBlacklistedEmails(user.id)
-    if (blacklisted.has(email)) { show('🚫', 'Email er på blacklisten', ''); return }
+    if (blacklisted.has(email)) { show('🚫', 'Blacklist', ''); return }
 
     const { data: existing } = await supabase.from('leads').select('id').eq('dealer_id', user.id).eq('email', email).single()
-    if (existing) { show('⚠️', 'Lead findes allerede', ''); return }
+    if (existing) { show('⚠️', 'Duplicate', ''); return }
 
     const car = data.get('car') as string
     const source = data.get('source') as string
 
     const { error } = await supabase.from('leads').insert({
-      dealer_id: user.id,
-      name: data.get('name') as string,
-      email, phone: data.get('phone') as string,
-      car, source,
-      days_since_contact: 0,
-      status: 'warm',
-      score: calculateScore(car, 0, source),
+      dealer_id: user.id, name: data.get('name') as string,
+      email, phone: data.get('phone') as string, car, source,
+      days_since_contact: 0, status: 'warm', score: calculateScore(car, 0, source),
     })
 
-    if (error) { show('❌', 'Fejl', error.message); return }
-    show('✅', 'Lead tilføjet!', '')
+    if (error) { show('❌', 'Error', error.message); return }
+    show('✅', 'Lead!', '')
     refresh()
     form.reset()
   }
 
   function connectCRM(name: string) {
-    show('🔗', `${name} integration`, 'Åbner OAuth forbindelsesflow...')
-    setTimeout(() => show('✅', `${name} forbundet!`, ''), 2500)
+    show('🔗', name, '...')
+    setTimeout(() => show('✅', name, ''), 2500)
   }
+
+  const crmList = [
+    {name:'Gmail', desc:'ventas@mercedesbcn.com', done:true},
+    {name:'HubSpot CRM', desc: tr.crmItems[0].desc},
+    {name:'Salesforce', desc: tr.crmItems[1].desc},
+    {name:'Calendly', desc:'Sync'},
+    {name:'WhatsApp Business', desc:'WhatsApp'},
+  ]
 
   return (
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
@@ -140,7 +139,7 @@ export default function Import() {
             <input name="car" className="field-input" placeholder="BMW 520d" style={{width:'100%'}}/>
             <div className="label">{tr.source}</div>
             <select name="source" className="field-select" style={{width:'100%'}}>
-              {['Manuelt tilføjet','Hjemmeside formular','Telefonopkald','Showroom besøg','Social media'].map(o=><option key={o}>{o}</option>)}
+              {tr.sourceOptions.map(o=><option key={o}>{o}</option>)}
             </select>
             <button type="submit" className="btn btn-gold" style={{width:'100%',marginTop:14,justifyContent:'center'}}>{tr.addLead}</button>
           </form>
@@ -150,17 +149,11 @@ export default function Import() {
       <div>
         <div className="panel" style={{marginBottom:14}}>
           <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.syncFromCrm}</div>
-          {[
-            {name:'Gmail',desc:'ventas@mercedesbcn.com',done:true},
-            {name:'HubSpot CRM',desc:'Synkroniser leads automatisk'},
-            {name:'Salesforce',desc:'Enterprise CRM integration'},
-            {name:'Calendly',desc:'Sync bookinger til leads'},
-            {name:'WhatsApp Business',desc:'Send via WhatsApp'},
-          ].map(item=>(
+          {crmList.map(item=>(
             <div key={item.name} className={`onboard-step${item.done?' done':''}`}>
               <div style={{width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0,border:`2px solid ${item.done?'var(--green)':'var(--border2)'}`,color:item.done?'var(--green)':'var(--text2)',background:item.done?'var(--greenbg)':'none'}}>{item.done?'✓':null}</div>
               <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13}}>{item.name}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{item.desc}</div></div>
-              {item.done?<span className="pill pill-green">Aktiv</span>:<button className="btn btn-ghost btn-sm" onClick={()=>connectCRM(item.name)}>Forbind</button>}
+              {item.done?<span className="pill pill-green">{tr.connected}</span>:<button className="btn btn-ghost btn-sm" onClick={()=>connectCRM(item.name)}>{tr.connect}</button>}
             </div>
           ))}
         </div>
