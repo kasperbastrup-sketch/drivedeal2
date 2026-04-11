@@ -4,7 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppShell from './AppShell'
 
-const publicPaths = ['/login', '/signup', '/reset-password', '/update-password']
+const publicPaths = ['/login', '/signup', '/reset-password', '/update-password', '/home', '/privacy', '/terms']
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<'checking'|'public'|'authed'>('checking')
@@ -21,7 +21,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
         return
       }
 
-      if (session && isPublic) {
+      if (session && (pathname === '/login' || pathname === '/signup')) {
         router.push('/')
         return
       }
@@ -33,7 +33,6 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       const isPublic = publicPaths.some(p => pathname.startsWith(p))
       if (!session && !isPublic) router.push('/login')
-      if (session && isPublic) router.push('/')
     })
 
     return () => subscription.unsubscribe()
@@ -41,10 +40,10 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
 
   if (status === 'checking') {
     return (
-      <div style={{minHeight:'100vh',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{minHeight:'100vh',background:'#0a0a0a',display:'flex',alignItems:'center',justifyContent:'center'}}>
         <div style={{textAlign:'center'}}>
-          <div style={{width:40,height:40,borderRadius:10,background:'linear-gradient(135deg,var(--gold3),var(--gold))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,margin:'0 auto 16px'}}>🚗</div>
-          <div style={{fontSize:13,color:'var(--text3)'}}>Indlæser...</div>
+          <div style={{width:40,height:40,borderRadius:10,background:'linear-gradient(135deg,#c9a96e,#b8860b)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,margin:'0 auto 16px'}}>🚗</div>
+          <div style={{fontSize:13,color:'#555'}}>Indlæser...</div>
         </div>
       </div>
     )
