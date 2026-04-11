@@ -1,6 +1,18 @@
+'use client'
+import { useEffect } from 'react'
+
 export default function Home() {
+  useEffect(() => {
+    document.body.style.overflow = 'auto'
+    document.documentElement.style.overflow = 'auto'
+    return () => {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+    }
+  }, [])
+
   return (
-    <div style={{background:'#0a0a0a',minHeight:'100vh',overflowY:'auto',fontFamily:"'Inter','SF Pro Display',-apple-system,sans-serif",color:'#ffffff'}}>
+    <div style={{background:'#0a0a0a',minHeight:'100vh',fontFamily:"'Inter','SF Pro Display',-apple-system,sans-serif",color:'#ffffff'}}>
       <nav style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'20px 48px',borderBottom:'1px solid #1a1a1a'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <div style={{width:32,height:32,borderRadius:8,background:'linear-gradient(135deg,#c9a96e,#b8860b)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🚗</div>
@@ -44,6 +56,27 @@ export default function Home() {
               <div style={{fontSize:28,marginBottom:12}}>{f.icon}</div>
               <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>{f.title}</div>
               <div style={{fontSize:13,color:'#666',lineHeight:1.6}}>{f.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{maxWidth:800,margin:'0 auto',padding:'0 48px 80px',textAlign:'center'}}>
+        <h2 style={{fontSize:36,fontWeight:700,letterSpacing:'-1px',marginBottom:12}}>Spar 450.000 kr om året</h2>
+        <p style={{color:'#666',marginBottom:40}}>Sammenlignet med en ansat der gør det samme arbejde manuelt</p>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          {[
+            {label:'Månedlig omkostning',ansat:'40.000–52.000 kr',dd:'3.999 kr'},
+            {label:'Emails pr. dag',ansat:'20–30 (manuelt)',dd:'100–150 (automatisk)'},
+            {label:'Arbejdstid',ansat:'8 timer',dd:'24/7'},
+            {label:'Sygedage',ansat:'Ja',dd:'Nej'},
+          ].map(r=>(
+            <div key={r.label} style={{background:'#111',border:'1px solid #1a1a1a',borderRadius:10,padding:16,textAlign:'left'}}>
+              <div style={{fontSize:11,color:'#555',textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>{r.label}</div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div style={{fontSize:13,color:'#555',textDecoration:'line-through'}}>{r.ansat}</div>
+                <div style={{fontSize:14,fontWeight:700,color:'#c9a96e'}}>{r.dd}</div>
+              </div>
             </div>
           ))}
         </div>
