@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
+import { useLang } from '@/lib/useLang'
 
 interface Campaign {
   id: string
@@ -17,6 +18,7 @@ interface Campaign {
 
 export default function Campaigns() {
   const { show } = useToast()
+  const { tr } = useLang()
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
   const [showReport, setShowReport] = useState<Campaign|null>(null)
@@ -35,22 +37,22 @@ export default function Campaigns() {
   async function deleteCampaign(id: string) {
     await supabase.from('campaigns').delete().eq('id', id)
     setCampaigns(prev => prev.filter(c => c.id !== id))
-    show('🗑️', 'Kampagne slettet', '')
+    show('🗑️', 'Slettet', '')
   }
 
   async function toggleStatus(id: string, current: string) {
     const newStatus = current === 'active' ? 'paused' : 'active'
     await supabase.from('campaigns').update({ status: newStatus }).eq('id', id)
     setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c))
-    show(newStatus === 'active' ? '▶' : '⏸', newStatus === 'active' ? 'Kampagne aktiveret' : 'Kampagne sat på pause', '')
+    show(newStatus === 'active' ? '▶' : '⏸', newStatus === 'active' ? tr.active : tr.paused, '')
   }
 
-  const statusIcon: Record<string,string> = { active: '📧', paused: '⏸', draft: '📝' }
-  const statusBg: Record<string,string> = { active: 'var(--goldglow)', paused: 'var(--surface2)', draft: 'var(--bluebg)' }
+  const statusIcon: Record<string,string> = { active:'📧', paused:'⏸', draft:'📝' }
+  const statusBg: Record<string,string> = { active:'var(--goldglow)', paused:'var(--surface2)', draft:'var(--bluebg)' }
+  const statusLabel: Record<string,string> = { active: tr.active, paused: tr.paused, draft: tr.draft }
 
   return (
     <div>
-      {/* RAPPORT MODAL */}
       {showReport && (
         <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowReport(null)}}>
           <div className="modal modal-sm">
@@ -60,46 +62,39 @@ export default function Campaigns() {
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
               {[
-                ['Emails sendt', showReport.emails_sent.toString()],
-                ['Emails åbnet', showReport.emails_opened.toString()],
-                ['Bookinger', showReport.bookings.toString()],
-                ['Åbningsrate', showReport.emails_sent > 0 ? Math.round((showReport.emails_opened/showReport.emails_sent)*100)+'%' : '0%'],
-                ['Skabelon', showReport.template],
-                ['Oprettet', new Date(showReport.created_at).toLocaleDateString('da-DK')],
+                [tr.sent, showReport.emails_sent.toString()],
+                [tr.opened, showReport.emails_opened.toString()],
+                [tr.bookings, showReport.bookings.toString()],
+                [tr.status, statusLabel[showReport.status] || showReport.status],
               ].map(([l,v])=>(
                 <div key={l} style={{background:'var(--surface2)',borderRadius:8,padding:12}}>
                   <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:.8,marginBottom:4}}>{l}</div>
-                  <div style={{fontSize:14,fontWeight:700,fontFamily:'var(--font-head)',color:'var(--gold)',wordBreak:'break-word'}}>{v}</div>
+                  <div style={{fontSize:14,fontWeight:700,fontFamily:'var(--font-head)',color:'var(--gold)'}}>{v}</div>
                 </div>
               ))}
             </div>
-            <div style={{background:'var(--surface2)',borderRadius:8,padding:12,marginBottom:16}}>
-              <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:.8,marginBottom:4}}>Målgruppe</div>
-              <div style={{fontSize:13,color:'var(--text)'}}>{showReport.segment}</div>
-            </div>
             <div style={{display:'flex',justifyContent:'flex-end'}}>
-              <button className="btn btn-ghost" onClick={()=>setShowReport(null)}>Luk</button>
+              <button className="btn btn-ghost" onClick={()=>setShowReport(null)}>✕</button>
             </div>
           </div>
         </div>
       )}
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-        <div className="font-head" style={{fontSize:14,fontWeight:700}}>AI kampagner — ekstra udsendelse ved særlige tilbud</div>
+        <div className="font-head" style={{fontSize:14,fontWeight:700}}>{tr.aiCampaigns}</div>
         <button className="btn btn-gold" onClick={()=>{
           const btn = document.querySelector('[data-campaign-trigger]') as HTMLButtonElement
           if (btn) btn.click()
-          else show('✨','Brug "Kør AI kampagne" knappen øverst til højre','')
-        }}>+ Ny kampagne</button>
+        }}>{tr.newCampaign}</button>
       </div>
 
-      {loading && <div style={{textAlign:'center',padding:40,color:'var(--text3)'}}>Henter kampagner...</div>}
+      {loading && <div style={{textAlign:'center',padding:40,color:'var(--text3)'}}>...</div>}
 
       {!loading && campaigns.length === 0 && (
         <div style={{textAlign:'center',padding:60,color:'var(--text3)'}}>
           <div style={{fontSize:36,marginBottom:10}}>📧</div>
-          <div style={{fontSize:14,fontWeight:600,color:'var(--text)',marginBottom:6}}>Ingen kampagner endnu</div>
-          <div style={{fontSize:12,marginBottom:20}}>Klik "Kør AI kampagne" øverst til højre for at starte din første kampagne</div>
+          <div style={{fontSize:14,fontWeight:600,color:'var(--text)',marginBottom:6}}>{tr.noCampaigns}</div>
+          <div style={{fontSize:12,marginBottom:20}}>{tr.noCampaignsDesc}</div>
         </div>
       )}
 
@@ -110,11 +105,11 @@ export default function Campaigns() {
             <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:2}}>{c.name}</div>
             <div style={{fontSize:11,color:'var(--text2)',marginBottom:5}}>{c.segment} · {c.template} · {new Date(c.created_at).toLocaleDateString('da-DK')}</div>
             <span className={`pill ${c.status==='active'?'pill-green':''}`} style={c.status!=='active'?{background:'var(--surface2)',color:'var(--text2)'}:{}}>
-              {c.status==='active'?'Aktiv':c.status==='paused'?'Sat på pause':'Kladde'}
+              {statusLabel[c.status] || c.status}
             </span>
           </div>
           <div style={{display:'flex',gap:20}}>
-            {[{val:c.emails_sent,lbl:'Sendt'},{val:c.emails_opened,lbl:'Åbnet',c:'var(--gold)'},{val:c.bookings,lbl:'Bookinger',c:'var(--green)'}].map(k=>(
+            {[{val:c.emails_sent,lbl:tr.sent},{val:c.emails_opened,lbl:tr.opened,c:'var(--gold)'},{val:c.bookings,lbl:tr.bookings,c:'var(--green)'}].map(k=>(
               <div key={k.lbl} style={{textAlign:'right'}}>
                 <div className="font-head" style={{fontSize:15,fontWeight:700,color:k.c||'var(--text)'}}>{k.val}</div>
                 <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.8px'}}>{k.lbl}</div>
@@ -122,11 +117,11 @@ export default function Campaigns() {
             ))}
           </div>
           <div style={{display:'flex',gap:6,marginLeft:14}}>
-            <button className="btn btn-ghost btn-sm" onClick={()=>setShowReport(c)}>Rapport</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setShowReport(c)}>{tr.report}</button>
             <button className="btn btn-ghost btn-sm" onClick={()=>toggleStatus(c.id,c.status)}>
-              {c.status==='active'?'⏸ Pause':'▶ Aktivér'}
+              {c.status==='active'?tr.pause:tr.activate}
             </button>
-            <button className="btn btn-red btn-sm" onClick={()=>deleteCampaign(c.id)}>🗑</button>
+            <button className="btn btn-red btn-sm" onClick={()=>deleteCampaign(c.id)}>{tr.delete}</button>
           </div>
         </div>
       ))}

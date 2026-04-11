@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useToast } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
+import { useLang } from '@/lib/useLang'
 
 const defaultTemplates = [
   {key:'proeve',icon:'🚗',name:'Prøvekørsel invitation',rate:'Åbningsrate: 52% · Booking-rate: 8.2%',
@@ -26,6 +27,7 @@ export default function Templates() {
   const [templates, setTemplates] = useState<Record<string,{subject:string;body:string}>>({})
   const [saving, setSaving] = useState(false)
   const { show } = useToast()
+  const { tr } = useLang()
 
   useEffect(() => { loadTemplates() }, [])
 
@@ -48,20 +50,14 @@ export default function Templates() {
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
-
     const tpl = defaultTemplates.find(t => t.key === selected)
     const current = templates[selected]
-
     const { error } = await supabase.from('templates').upsert({
-      dealer_id: user.id,
-      key: selected,
-      name: tpl?.name || selected,
-      subject: current?.subject || '',
-      body: current?.body || '',
+      dealer_id: user.id, key: selected, name: tpl?.name || selected,
+      subject: current?.subject || '', body: current?.body || '',
     }, { onConflict: 'dealer_id,key' })
-
-    if (error) { show('❌', 'Fejl ved gemning', error.message); setSaving(false); return }
-    show('💾', 'Skabelon gemt!', 'Bruges automatisk af AI ved næste kampagne')
+    if (error) { show('❌', 'Fejl', error.message); setSaving(false); return }
+    show('💾', tr.saveTemplate, '')
     setSaving(false)
   }
 
@@ -71,16 +67,16 @@ export default function Templates() {
   return (
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-        <div className="font-head" style={{fontSize:14,fontWeight:700}}>Email skabeloner</div>
+        <div className="font-head" style={{fontSize:14,fontWeight:700}}>{tr.emailTemplates}</div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1.5fr',gap:14}}>
         <div className="panel">
-          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>Vælg skabelon</div>
+          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.selectTemplate}</div>
           {defaultTemplates.map(t=>(
             <div key={t.key} className={`template-card${selected===t.key?' selected':''}`} onClick={()=>setSelected(t.key)}>
               <div style={{fontWeight:600,fontSize:12,marginBottom:3}}>{t.icon} {t.name}</div>
               <div style={{fontSize:10,color:'var(--green)',marginTop:4}}>{t.rate}</div>
-              {templates[t.key] && <div style={{fontSize:10,color:'var(--gold)',marginTop:3}}>✓ Tilpasset og gemt</div>}
+              {templates[t.key] && <div style={{fontSize:10,color:'var(--gold)',marginTop:3}}>{tr.customizedAndSaved}</div>}
             </div>
           ))}
         </div>
@@ -89,24 +85,14 @@ export default function Templates() {
           <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:4}}>{selectedTpl?.icon} {selectedTpl?.name}</div>
           <div style={{fontSize:11,color:'var(--text2)',marginBottom:14}}>{selectedTpl?.rate}</div>
 
-          <div className="label" style={{marginTop:0}}>Emne-linje</div>
-          <input
-            className="field-input"
-            value={current.subject}
-            onChange={e=>setTemplates(prev=>({...prev,[selected]:{...prev[selected],subject:e.target.value}}))}
-            style={{width:'100%'}}
-          />
+          <div className="label" style={{marginTop:0}}>{tr.subjectLine}</div>
+          <input className="field-input" value={current.subject} onChange={e=>setTemplates(prev=>({...prev,[selected]:{...prev[selected],subject:e.target.value}}))} style={{width:'100%'}}/>
 
-          <div className="label">Email tekst</div>
-          <textarea
-            className="field-textarea"
-            value={current.body}
-            onChange={e=>setTemplates(prev=>({...prev,[selected]:{...prev[selected],body:e.target.value}}))}
-            style={{minHeight:260}}
-          />
+          <div className="label">{tr.emailText}</div>
+          <textarea className="field-textarea" value={current.body} onChange={e=>setTemplates(prev=>({...prev,[selected]:{...prev[selected],body:e.target.value}}))} style={{minHeight:260}}/>
 
           <div style={{marginTop:8,fontSize:11,color:'var(--text2)'}}>
-            Variabler: {['{{fornavn}}','{{bil}}','{{dage_siden}}','{{afsender}}','{{forhandler}}'].map(v=>(
+            {tr.variables}: {['{{fornavn}}','{{bil}}','{{dage_siden}}','{{afsender}}','{{forhandler}}'].map(v=>(
               <code key={v} style={{fontFamily:'var(--font-mono)',fontSize:10,background:'var(--surface2)',padding:'1px 5px',borderRadius:3,marginRight:4}}>{v}</code>
             ))}
           </div>
@@ -115,10 +101,10 @@ export default function Templates() {
             <button className="btn btn-ghost" onClick={()=>{
               const def = defaultTemplates.find(t=>t.key===selected)
               if(def) setTemplates(prev=>({...prev,[selected]:{subject:def.subject,body:def.body}}))
-              show('↩️','Nulstillet til standard','')
-            }}>Nulstil</button>
+              show('↩️', tr.reset, '')
+            }}>{tr.reset}</button>
             <button className="btn btn-gold" onClick={saveTemplate} disabled={saving}>
-              {saving?'Gemmer...':'💾 Gem skabelon'}
+              {saving?tr.saving:tr.saveTemplate}
             </button>
           </div>
         </div>
