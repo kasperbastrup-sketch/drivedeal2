@@ -28,7 +28,7 @@ export default function Settings() {
     currency: 'EUR', avg_car_price: '35000',
   })
   const [aiForm, setAiForm] = useState({
-    ai_tone: 'warm', ai_language: 'spansk',
+    ai_tone: 'warm', ai_language: 'spansk', app_language: 'da',
     auto_personalization: true, ai_subject: true,
     urgency_trigger: true, auto_stop: true,
   })
@@ -51,6 +51,7 @@ export default function Settings() {
         setAiForm({
           ai_tone: data.ai_tone || 'warm',
           ai_language: data.ai_language || 'spansk',
+          app_language: data.app_language || 'da',
           auto_personalization: data.auto_personalization ?? true,
           ai_subject: data.ai_subject ?? true,
           urgency_trigger: data.urgency_trigger ?? true,
@@ -79,7 +80,7 @@ export default function Settings() {
     if (!user) { setSaving(false); return }
     const { error } = await supabase.from('dealers').update(aiForm).eq('id', user.id)
     if (error) { show('❌', 'Fejl ved gemning', error.message); setSaving(false); return }
-    show('💾', 'AI indstillinger gemt', '')
+    show('💾', 'AI indstillinger gemt — refresh siden for at se nyt sprog', '')
     setSaving(false)
   }
 
@@ -125,7 +126,7 @@ export default function Settings() {
             <div style={{background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.2)',borderRadius:9,padding:12,marginTop:14}}>
               <div style={{fontSize:11,color:'var(--gold)',fontWeight:600,marginBottom:4}}>Estimeringsformel</div>
               <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.7}}>
-                Bookinger × {parseInt(form.avg_car_price||'0').toLocaleString('da')} {selectedCurrency?.symbol} × 40% konverteringsrate = <strong style={{color:'var(--gold)'}}>{(10*parseInt(form.avg_car_price||'0')*0.4).toLocaleString('da')} {selectedCurrency?.symbol}</strong> (eks. med 10 bookinger)
+                Bookinger × {parseInt(form.avg_car_price||'0').toLocaleString('da')} {selectedCurrency?.symbol} × 40% = <strong style={{color:'var(--gold)'}}>{(10*parseInt(form.avg_car_price||'0')*0.4).toLocaleString('da')} {selectedCurrency?.symbol}</strong> (eks. med 10 bookinger)
               </div>
             </div>
           </div>
@@ -136,6 +137,16 @@ export default function Settings() {
       {tab==='ai'&&(
         <div>
           <div className="font-head" style={{fontSize:13,fontWeight:700,paddingBottom:10,borderBottom:'1px solid var(--border)',marginBottom:14}}>AI personlighed</div>
+
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
+            <div><div style={{fontSize:13,fontWeight:500}}>App sprog</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Sprog for hele applikationen</div></div>
+            <select className="field-select" value={aiForm.app_language} onChange={e=>setAiForm(prev=>({...prev,app_language:e.target.value}))}>
+              <option value="da">🇩🇰 Dansk</option>
+              <option value="es">🇪🇸 Español</option>
+              <option value="en">🇬🇧 English</option>
+            </select>
+          </div>
+
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
             <div><div style={{fontSize:13,fontWeight:500}}>Email tone</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Påvirker AI's skrivestil</div></div>
             <select className="field-select" value={aiForm.ai_tone} onChange={e=>setAiForm(prev=>({...prev,ai_tone:e.target.value}))}>
@@ -144,6 +155,7 @@ export default function Settings() {
               <option value="direct">Direkte og salgsrettet</option>
             </select>
           </div>
+
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
             <div><div style={{fontSize:13,fontWeight:500}}>Primært email-sprog</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>AI genererer emails på dette sprog</div></div>
             <select className="field-select" value={aiForm.ai_language} onChange={e=>setAiForm(prev=>({...prev,ai_language:e.target.value}))}>
@@ -157,6 +169,7 @@ export default function Settings() {
               <option value="nederlandsk">Nederlandsk</option>
             </select>
           </div>
+
           {[
             ['auto_personalization','Auto-personalisering','Brug navn, bil og tidspunkt i emails'],
             ['ai_subject','AI-genereret emne-linje','AI vælger bedst mulig emne-linje'],
@@ -194,7 +207,7 @@ export default function Settings() {
         <div>
           <div style={{background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.3)',borderRadius:10,padding:18,marginBottom:14}}>
             <div className="font-head" style={{fontSize:18,fontWeight:800,color:'var(--gold)'}}>Pro Plan</div>
-            <div style={{fontSize:12,color:'var(--text2)',marginTop:2}}>€ 299/måned</div>
+            <div style={{fontSize:12,color:'var(--text2)',marginTop:2}}>3.999 kr/md ekskl. moms</div>
             <div style={{marginTop:12,display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,fontSize:12}}>
               {['Ubegrænsede leads','AI email generering','Supabase database','Sekvens-automatisering','CRM integrationer','Analytics dashboard'].map(f=><div key={f} style={{color:'var(--green)'}}>✓ {f}</div>)}
             </div>
