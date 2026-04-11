@@ -2,6 +2,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useLang } from '@/lib/useLang'
 
 interface Props { leadCount: number; campaignCount: number }
 
@@ -10,6 +11,7 @@ export default function Sidebar({ leadCount, campaignCount }: Props) {
   const router = useRouter()
   const [dealerName, setDealerName] = useState('Min forhandler')
   const [initials, setInitials] = useState('DD')
+  const { tr } = useLang()
 
   useEffect(() => {
     async function loadDealer() {
@@ -33,22 +35,22 @@ export default function Sidebar({ leadCount, campaignCount }: Props) {
 
   const navItems = [
     { group: 'Overblik', items: [
-      { label: 'Dashboard', path: '/' },
-      { label: 'Analyser', path: '/analytics' },
+      { label: tr.dashboard, path: '/' },
+      { label: tr.analytics, path: '/analytics' },
     ]},
     { group: 'Leads', items: [
-      { label: 'Alle leads', path: '/leads', badge: leadCount > 0 ? leadCount.toString() : undefined },
-      { label: 'Importer leads', path: '/import' },
-      { label: 'Blacklist', path: '/blacklist' },
+      { label: tr.allLeads, path: '/leads', badge: leadCount > 0 ? leadCount.toString() : undefined },
+      { label: tr.importLeads, path: '/import' },
+      { label: tr.blacklist, path: '/blacklist' },
     ]},
     { group: 'Outreach', items: [
-      { label: 'Kampagner', path: '/campaigns', badge: campaignCount > 0 ? campaignCount.toString() : undefined },
-      { label: 'Sekvenser', path: '/sequences' },
-      { label: 'Email skabeloner', path: '/templates' },
+      { label: tr.campaigns, path: '/campaigns', badge: campaignCount > 0 ? campaignCount.toString() : undefined },
+      { label: tr.sequences, path: '/sequences' },
+      { label: tr.templates, path: '/templates' },
     ]},
     { group: 'System', items: [
-      { label: 'Integrationer', path: '/integrations' },
-      { label: 'Indstillinger', path: '/settings' },
+      { label: tr.integrations, path: '/integrations' },
+      { label: tr.settings, path: '/settings' },
     ]},
   ]
 
@@ -85,7 +87,7 @@ export default function Sidebar({ leadCount, campaignCount }: Props) {
           <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,var(--gold3),var(--gold))',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-head)',fontSize:11,fontWeight:700,color:'#1a1100',flexShrink:0}}>{initials}</div>
           <div>
             <div style={{fontSize:12,fontWeight:600}}>{dealerName}</div>
-            <div style={{fontSize:10,color:'var(--gold)',display:'flex',alignItems:'center',gap:4}}><span className="plan-dot"></span>Log ud</div>
+            <div style={{fontSize:10,color:'var(--gold)',display:'flex',alignItems:'center',gap:4}}><span className="plan-dot"></span>{tr.logout}</div>
           </div>
         </div>
       </div>
