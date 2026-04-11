@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import ComposeModal from '@/components/ComposeModal'
 import { useToast } from '@/components/Toast'
-import { useRefresh } from "@/components/AppShell"
-import { autoMarkColdLeads } from "@/lib/autoMarkCold"
+import { useRefresh } from '@/components/AppShell'
+import { useLang } from '@/lib/useLang'
 
 type LeadStatus = 'cold' | 'warm' | 'sent' | 'booked' | 'replied'
 
@@ -20,14 +20,6 @@ interface Lead {
   score: number
 }
 
-const statusBadge: Record<LeadStatus, React.ReactNode> = {
-  cold: <span className="badge badge-cold"><span className="badge-dot"></span>Kold</span>,
-  warm: <span className="badge badge-warm"><span className="badge-dot"></span>Varm</span>,
-  sent: <span className="badge badge-sent"><span className="badge-dot"></span>AI sendt</span>,
-  booked: <span className="badge badge-booked"><span className="badge-dot"></span>Booket ✓</span>,
-  replied: <span className="badge badge-replied"><span className="badge-dot"></span>Svarede</span>,
-}
-
 function scoreColor(s: number) { return s>=80?'var(--green)':s>=60?'var(--gold)':'var(--text2)' }
 
 export default function Leads() {
@@ -41,6 +33,15 @@ export default function Leads() {
   const [editForm, setEditForm] = useState<Partial<Lead>>({})
   const { show } = useToast()
   const { refresh } = useRefresh()
+  const { tr } = useLang()
+
+  const statusBadge: Record<LeadStatus, React.ReactNode> = {
+    cold: <span className="badge badge-cold"><span className="badge-dot"></span>{tr.coldBadge}</span>,
+    warm: <span className="badge badge-warm"><span className="badge-dot"></span>{tr.warmBadge}</span>,
+    sent: <span className="badge badge-sent"><span className="badge-dot"></span>{tr.sentBadge}</span>,
+    booked: <span className="badge badge-booked"><span className="badge-dot"></span>{tr.bookedBadge}</span>,
+    replied: <span className="badge badge-replied"><span className="badge-dot"></span>{tr.repliedBadge}</span>,
+  }
 
   useEffect(() => { loadLeads() }, [])
 
@@ -48,8 +49,7 @@ export default function Leads() {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
-    await autoMarkColdLeads(user.id)
-    const { data } = await supabase.from("leads").select('*').eq('dealer_id', user.id).order('created_at', { ascending: false })
+    const { data } = await supabase.from('leads').select('*').eq('dealer_id', user.id).order('created_at', { ascending: false })
     setLeads(data || [])
     setLoading(false)
   }
@@ -107,13 +107,17 @@ export default function Leads() {
     status: composeLead.status, score: composeLead.score || 50,
   } : null
 
+  const filterLabels: Record<string,string> = {
+    all: tr.all, cold: tr.cold, warm: tr.warm,
+    sent: tr.aiSent, replied: tr.repliedBadge, booked: tr.booked
+  }
+
   return (
     <div>
       {composeLead && dataForCompose && (
         <ComposeModal lead={dataForCompose} onClose={()=>setComposeLead(null)} onSent={()=>onSent(composeLead.id)}/>
       )}
 
-      {/* Edit modal */}
       {editLead && (
         <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setEditLead(null)}}>
           <div className="modal modal-sm">
@@ -121,25 +125,25 @@ export default function Leads() {
               <div className="font-head" style={{fontSize:17,fontWeight:700}}>Rediger lead</div>
               <button onClick={()=>setEditLead(null)} style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text2)',cursor:'pointer',borderRadius:6,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>✕</button>
             </div>
-            <div className="label" style={{marginTop:0}}>Navn</div>
+            <div className="label" style={{marginTop:0}}>{tr.yourName}</div>
             <input className="field-input" value={editForm.name||''} onChange={e=>setEditForm(p=>({...p,name:e.target.value}))} style={{width:'100%'}}/>
-            <div className="label">Email</div>
+            <div className="label">{tr.email}</div>
             <input className="field-input" type="email" value={editForm.email||''} onChange={e=>setEditForm(p=>({...p,email:e.target.value}))} style={{width:'100%'}}/>
-            <div className="label">Telefon</div>
+            <div className="label">{tr.phone}</div>
             <input className="field-input" value={editForm.phone||''} onChange={e=>setEditForm(p=>({...p,phone:e.target.value}))} style={{width:'100%'}}/>
-            <div className="label">Bil interesse</div>
+            <div className="label">{tr.carInterestField}</div>
             <input className="field-input" value={editForm.car||''} onChange={e=>setEditForm(p=>({...p,car:e.target.value}))} style={{width:'100%'}}/>
-            <div className="label">Status</div>
+            <div className="label">{tr.status}</div>
             <select className="field-select" value={editForm.status||'cold'} onChange={e=>setEditForm(p=>({...p,status:e.target.value as LeadStatus}))} style={{width:'100%'}}>
-              <option value="cold">Kold</option>
-              <option value="warm">Varm</option>
-              <option value="sent">AI sendt</option>
-              <option value="replied">Svarede</option>
-              <option value="booked">Booket</option>
+              <option value="cold">{tr.coldBadge}</option>
+              <option value="warm">{tr.warmBadge}</option>
+              <option value="sent">{tr.sentBadge}</option>
+              <option value="replied">{tr.repliedBadge}</option>
+              <option value="booked">{tr.bookedBadge}</option>
             </select>
             <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:20,paddingTop:16,borderTop:'1px solid var(--border)'}}>
               <button className="btn btn-ghost" onClick={()=>setEditLead(null)}>Annuller</button>
-              <button className="btn btn-gold" onClick={saveEdit}>Gem ændringer</button>
+              <button className="btn btn-gold" onClick={saveEdit}>{tr.saveSettings}</button>
             </div>
           </div>
         </div>
@@ -148,14 +152,14 @@ export default function Leads() {
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
         {['all','cold','warm','sent','replied','booked'].map(f=>(
           <button key={f} className={`filter-chip${filter===f?' active':''}`} onClick={()=>setFilter(f)}>
-            {({all:'Alle',cold:'Kolde',warm:'Varme',sent:'AI sendt',replied:'Svarede',booked:'Booket'} as Record<string,string>)[f]} <span style={{opacity:.5}}>({counts[f]||0})</span>
+            {filterLabels[f]} <span style={{opacity:.5}}>({counts[f]||0})</span>
           </button>
         ))}
         <div style={{display:'flex',alignItems:'center',gap:7,background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:7,padding:'6px 11px',marginLeft:'auto'}}>
-          <input placeholder="Søg navn, email, bil..." value={search} onChange={e=>setSearch(e.target.value)} style={{background:'none',border:'none',outline:'none',color:'var(--text)',fontSize:12,fontFamily:'var(--font-body)',width:180}}/>
+          <input placeholder={tr.searchPlaceholder} value={search} onChange={e=>setSearch(e.target.value)} style={{background:'none',border:'none',outline:'none',color:'var(--text)',fontSize:12,fontFamily:'var(--font-body)',width:180}}/>
         </div>
         {selected.size>0&&(
-          <button className="btn btn-red btn-sm" onClick={deleteSelected}>🗑 Slet {selected.size} valgte</button>
+          <button className="btn btn-red btn-sm" onClick={deleteSelected}>{tr.deleteSelected} {selected.size}</button>
         )}
       </div>
 
@@ -163,15 +167,15 @@ export default function Leads() {
         <table>
           <thead><tr>
             <th style={{width:32}}><input type="checkbox" style={{accentColor:'var(--gold)'}} onChange={e=>{if(e.target.checked)setSelected(new Set(visible.map(l=>l.id)));else setSelected(new Set())}}/></th>
-            <th>Kontakt</th><th>Bil interesse</th><th>Sidst kontaktet</th><th>Kilde</th><th>Status</th><th>AI score</th><th></th>
+            <th>{tr.contact}</th><th>{tr.carInterest}</th><th>{tr.lastContacted}</th><th>{tr.source}</th><th>{tr.status}</th><th>{tr.aiScore}</th><th></th>
           </tr></thead>
           <tbody>
             {loading&&<tr><td colSpan={8} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>Henter leads...</td></tr>}
             {!loading&&visible.length===0&&(
               <tr><td colSpan={8} style={{textAlign:'center',padding:60,color:'var(--text3)'}}>
                 <div style={{fontSize:32,marginBottom:10}}>📭</div>
-                <div style={{fontSize:14,fontWeight:600,color:'var(--text)',marginBottom:6}}>Ingen leads endnu</div>
-                <div style={{fontSize:12}}>Gå til "Importer leads" for at tilføje dine første leads</div>
+                <div style={{fontSize:14,fontWeight:600,color:'var(--text)',marginBottom:6}}>{tr.noLeadsYet}</div>
+                <div style={{fontSize:12}}>{tr.goToImport}</div>
               </td></tr>
             )}
             {visible.map(l=>(
@@ -179,13 +183,13 @@ export default function Leads() {
                 <td><input type="checkbox" checked={selected.has(l.id)} onChange={e=>toggleSelect(l.id,e.target.checked)} style={{accentColor:'var(--gold)'}}/></td>
                 <td><div style={{fontWeight:500}}>{l.name}</div><div style={{fontSize:11,color:'var(--text2)'}}>{l.email}</div></td>
                 <td style={{fontSize:12}}>{l.car}</td>
-                <td style={{fontSize:12,color:'var(--text2)'}}>{l.days_since_contact} dage siden</td>
+                <td style={{fontSize:12,color:'var(--text2)'}}>{l.days_since_contact} {tr.daysSince}</td>
                 <td style={{fontSize:11,color:'var(--text3)'}}>{l.source}</td>
                 <td>{statusBadge[l.status]}</td>
                 <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="score-bar"><div className="score-fill" style={{width:l.score+'%',background:scoreColor(l.score)}}></div></div><span style={{fontSize:11,fontWeight:600,fontFamily:'var(--font-mono)',color:scoreColor(l.score)}}>{l.score}</span></div></td>
                 <td>
                   <div style={{display:'flex',gap:5}}>
-                    <button className="btn btn-ghost btn-sm" onClick={()=>setComposeLead(l)}>AI Email →</button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>setComposeLead(l)}>{tr.aiEmail}</button>
                     <button className="btn btn-ghost btn-sm" onClick={()=>{setEditLead(l);setEditForm({name:l.name,email:l.email,phone:l.phone,car:l.car,status:l.status})}}>✏️</button>
                     <button className="btn btn-red btn-sm" onClick={()=>deleteLead(l.id)}>🗑</button>
                   </div>
