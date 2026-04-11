@@ -1,6 +1,6 @@
 export default function Home() {
   return (
-    <div style={{background:'#0a0a0a',minHeight:'100vh',fontFamily:"'Inter','SF Pro Display',-apple-system,sans-serif",color:'#ffffff'}}>
+    <div style={{background:'#0a0a0a',minHeight:'100vh',overflowY:'auto',fontFamily:"'Inter','SF Pro Display',-apple-system,sans-serif",color:'#ffffff'}}>
       <nav style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'20px 48px',borderBottom:'1px solid #1a1a1a'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <div style={{width:32,height:32,borderRadius:8,background:'linear-gradient(135deg,#c9a96e,#b8860b)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🚗</div>
