@@ -50,7 +50,7 @@ export default function Login() {
           </button>
         </form>
 
-        <div style={{marginTop:20,textAlign:'center',fontSize:12,color:'var(--text2)'}}>
+        <div style={{marginTop:20,textAlign:'center',fontSize:12,color:'var(--text2)'}}><a href="/privacy" style={{color:'var(--text3)',textDecoration:'none',fontSize:11}}>Privatlivspolitik</a><br/><br/>
           Har du ikke en konto? <a href="/signup" style={{color:'var(--gold)'}}>Opret konto</a>
         </div>
       </div>

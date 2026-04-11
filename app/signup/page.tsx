@@ -84,7 +84,7 @@ export default function Signup() {
           </button>
         </form>
 
-        <div style={{marginTop:20,textAlign:'center',fontSize:12,color:'var(--text2)'}}>
+        <div style={{marginTop:20,textAlign:'center',fontSize:12,color:'var(--text2)'}}><a href="/privacy" style={{color:'var(--text3)',textDecoration:'none',fontSize:11}}>Privatlivspolitik</a><br/><br/>
           Har du allerede en konto? <a href="/login" style={{color:'var(--gold)'}}>Log ind</a>
         </div>
       </div>
