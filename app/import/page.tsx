@@ -3,12 +3,14 @@ import { useState } from 'react'
 import { useToast } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
 import { useRefresh } from '@/components/AppShell'
-import { getBlacklistedEmails } from "@/lib/blacklist"
-import { calculateScore } from "@/lib/scoreLeads"
+import { getBlacklistedEmails } from '@/lib/blacklist'
+import { calculateScore } from '@/lib/scoreLeads'
+import { useLang } from '@/lib/useLang'
 
 export default function Import() {
   const { show } = useToast()
   const { refresh } = useRefresh()
+  const { tr } = useLang()
   const [dragging, setDragging] = useState(false)
   const [importing, setImporting] = useState(false)
 
@@ -25,16 +27,17 @@ export default function Import() {
       const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
       const obj: Record<string,string> = {}
       headers.forEach((h, i) => obj[h] = values[i] || '')
+      const car = obj['bil'] || obj['car'] || obj['coche'] || obj['interesse'] || values[3] || ''
+      const days = parseInt(obj['dage'] || obj['days'] || obj['dias'] || '90') || 90
+      const source = obj['kilde'] || obj['source'] || 'CSV Import'
       return {
         dealer_id: user.id,
         name: obj['navn'] || obj['name'] || obj['nombre'] || values[0] || 'Ukendt',
         email: (obj['email'] || obj['correo'] || values[1] || '').toLowerCase().trim(),
         phone: obj['telefon'] || obj['phone'] || obj['telefono'] || values[2] || '',
-        car: obj['bil'] || obj['car'] || obj['coche'] || obj['interesse'] || values[3] || '',
-        days_since_contact: parseInt(obj['dage'] || obj['days'] || obj['dias'] || '90') || 90,
-        source: obj['kilde'] || obj['source'] || 'CSV Import',
+        car, days_since_contact: days, source,
         status: 'cold',
-        score: calculateScore(obj["bil"] || obj["car"] || obj["coche"] || obj["interesse"] || values[3] || "", parseInt(obj["dage"] || obj["days"] || obj["dias"] || "90") || 90, obj["kilde"] || obj["source"] || "CSV Import"),
+        score: calculateScore(car, days, source),
       }
     }).filter(l => l.email)
 
@@ -46,13 +49,12 @@ export default function Import() {
     ])
 
     const existingEmails = new Set((existing.data || []).map(l => l.email.toLowerCase()))
-
     const duplicates = parsed.filter(l => existingEmails.has(l.email))
     const blacklistedCount = parsed.filter(l => blacklisted.has(l.email)).length
     const unique = parsed.filter(l => !existingEmails.has(l.email) && !blacklisted.has(l.email))
 
     if (unique.length === 0) {
-      show('⚠️', 'Ingen nye leads at importere', `${duplicates.length} dubletter · ${blacklistedCount} på blacklist`)
+      show('⚠️', 'Ingen nye leads', `${duplicates.length} dubletter · ${blacklistedCount} på blacklist`)
       setImporting(false)
       return
     }
@@ -63,9 +65,7 @@ export default function Import() {
     const parts = []
     if (duplicates.length > 0) parts.push(`${duplicates.length} dubletter`)
     if (blacklistedCount > 0) parts.push(`${blacklistedCount} på blacklist`)
-    const msg = parts.length > 0 ? parts.join(' · ') + ' sprunget over' : 'Gå til "Alle leads" for at se dem'
-
-    show('✅', `${unique.length} leads importeret!`, msg)
+    show('✅', `${unique.length} leads importeret!`, parts.length > 0 ? parts.join(' · ') + ' sprunget over' : '')
     refresh()
     setImporting(false)
   }
@@ -78,30 +78,27 @@ export default function Import() {
     if (!user) { show('❌', 'Ikke logget ind', ''); return }
 
     const email = (data.get('email') as string).toLowerCase().trim()
-
     const blacklisted = await getBlacklistedEmails(user.id)
-    if (blacklisted.has(email)) {
-      show('🚫', 'Email er på blacklisten', 'Denne person har afmeldt sig')
-      return
-    }
+    if (blacklisted.has(email)) { show('🚫', 'Email er på blacklisten', ''); return }
 
     const { data: existing } = await supabase.from('leads').select('id').eq('dealer_id', user.id).eq('email', email).single()
-    if (existing) { show('⚠️', 'Lead findes allerede', `${email} er allerede i din database`); return }
+    if (existing) { show('⚠️', 'Lead findes allerede', ''); return }
+
+    const car = data.get('car') as string
+    const source = data.get('source') as string
 
     const { error } = await supabase.from('leads').insert({
       dealer_id: user.id,
       name: data.get('name') as string,
-      email,
-      phone: data.get('phone') as string,
-      car: data.get('car') as string,
-      source: data.get('source') as string,
+      email, phone: data.get('phone') as string,
+      car, source,
       days_since_contact: 0,
       status: 'warm',
-      score: 65,
+      score: calculateScore(car, 0, source),
     })
 
     if (error) { show('❌', 'Fejl', error.message); return }
-    show('✅', 'Lead tilføjet!', 'Klar til AI outreach')
+    show('✅', 'Lead tilføjet!', '')
     refresh()
     form.reset()
   }
@@ -115,7 +112,7 @@ export default function Import() {
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
       <div>
         <div className="panel" style={{marginBottom:14}}>
-          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>Upload CSV fil</div>
+          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.uploadCsv}</div>
           <div className="drop-zone"
             style={{borderColor:dragging?'var(--gold)':undefined,background:dragging?'var(--goldglow)':undefined,opacity:importing?.6:1}}
             onDragOver={e=>{e.preventDefault();setDragging(true)}}
@@ -123,36 +120,36 @@ export default function Import() {
             onDrop={e=>{e.preventDefault();setDragging(false);if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0])}}
             onClick={()=>!importing&&document.getElementById('csv-input')?.click()}>
             <div style={{fontSize:32,marginBottom:10}}>{importing?'⏳':'📁'}</div>
-            <div style={{fontWeight:600,fontSize:14,marginBottom:4}}>{importing?'Importerer...':'Træk CSV fil her'}</div>
-            <div style={{fontSize:12,color:'var(--text2)'}}>eller klik for at vælge fil</div>
-            <div style={{fontSize:10,color:'var(--text3)',marginTop:8}}>Kolonner: Navn, Email, Telefon, Bil, Dage siden kontakt</div>
+            <div style={{fontWeight:600,fontSize:14,marginBottom:4}}>{importing?tr.importing:tr.dragHere}</div>
+            <div style={{fontSize:12,color:'var(--text2)'}}>{tr.orClick}</div>
+            <div style={{fontSize:10,color:'var(--text3)',marginTop:8}}>{tr.csvColumns}</div>
           </div>
           <input id="csv-input" type="file" accept=".csv" style={{display:'none'}} onChange={e=>{if(e.target.files?.[0])processFile(e.target.files[0])}}/>
         </div>
 
         <div className="panel">
-          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>Tilføj lead manuelt</div>
+          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.addManually}</div>
           <form onSubmit={addManualLead}>
-            <div className="label" style={{marginTop:0}}>Fuldt navn</div>
+            <div className="label" style={{marginTop:0}}>{tr.fullName}</div>
             <input name="name" className="field-input" placeholder="Carlos Mendez" style={{width:'100%'}} required/>
-            <div className="label">Email</div>
+            <div className="label">{tr.email}</div>
             <input name="email" type="email" className="field-input" placeholder="carlos@gmail.com" style={{width:'100%'}} required/>
-            <div className="label">Telefon</div>
+            <div className="label">{tr.phone}</div>
             <input name="phone" className="field-input" placeholder="+34 612 345 678" style={{width:'100%'}}/>
-            <div className="label">Bil interesse</div>
+            <div className="label">{tr.carInterestField}</div>
             <input name="car" className="field-input" placeholder="BMW 520d" style={{width:'100%'}}/>
-            <div className="label">Kilde</div>
+            <div className="label">{tr.source}</div>
             <select name="source" className="field-select" style={{width:'100%'}}>
               {['Manuelt tilføjet','Hjemmeside formular','Telefonopkald','Showroom besøg','Social media'].map(o=><option key={o}>{o}</option>)}
             </select>
-            <button type="submit" className="btn btn-gold" style={{width:'100%',marginTop:14,justifyContent:'center'}}>+ Tilføj lead</button>
+            <button type="submit" className="btn btn-gold" style={{width:'100%',marginTop:14,justifyContent:'center'}}>{tr.addLead}</button>
           </form>
         </div>
       </div>
 
       <div>
         <div className="panel" style={{marginBottom:14}}>
-          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>Synkroniser fra CRM</div>
+          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.syncFromCrm}</div>
           {[
             {name:'Gmail',desc:'ventas@mercedesbcn.com',done:true},
             {name:'HubSpot CRM',desc:'Synkroniser leads automatisk'},
@@ -169,14 +166,14 @@ export default function Import() {
         </div>
 
         <div className="panel">
-          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:4}}>CSV format eksempel</div>
-          <div style={{fontSize:11,color:'var(--text2)',marginBottom:10}}>Din CSV fil skal se sådan ud:</div>
+          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:4}}>{tr.csvExample}</div>
+          <div style={{fontSize:11,color:'var(--text2)',marginBottom:10}}>{tr.csvExampleDesc}</div>
           <div style={{background:'var(--surface2)',borderRadius:8,padding:12,fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text)',lineHeight:1.8}}>
             Navn,Email,Telefon,Bil,Dage<br/>
             Carlos Mendez,carlos@gmail.com,+34612001001,BMW 520d,127<br/>
             María González,maria@hotmail.com,+34612002002,Mercedes GLC,94
           </div>
-          <div style={{fontSize:11,color:'var(--text2)',marginTop:10}}>Dubletter og blacklistede emails springes automatisk over.</div>
+          <div style={{fontSize:11,color:'var(--text2)',marginTop:10}}>{tr.duplicatesSkipped}</div>
         </div>
       </div>
     </div>
