@@ -6,13 +6,13 @@ import { useToast } from '@/components/Toast'
 interface Step { day: string; name: string; desc: string }
 interface Sequence { id: string; name: string; status: string; steps: Step[]; created_at: string }
 
-const defaultSteps3: Step[] = [
+const recommended: Step[] = [
   { day: 'Dag 0', name: 'Personlig check-in email', desc: 'Sendes straks ved kampagnestart' },
   { day: 'Dag 10', name: 'Blid opfølgning', desc: 'Kun hvis email 1 ikke er besvaret' },
   { day: 'Dag 20', name: 'Eksklusivt tilbud', desc: 'Sidste chance med personlig rabat' },
 ]
 
-const defaultSteps4: Step[] = [
+const intensive: Step[] = [
   { day: 'Dag 0', name: 'Intro email', desc: 'Nysgerrighed-drevet åbning' },
   { day: 'Dag 7', name: 'Specifik model info', desc: 'Personaliseret til bil-interesse' },
   { day: 'Dag 14', name: 'Prøvekørsel invitation', desc: 'Med booking link' },
@@ -27,7 +27,10 @@ export default function Sequences() {
   const [showEdit, setShowEdit] = useState<Sequence|null>(null)
   const [showReport, setShowReport] = useState<Sequence|null>(null)
   const [newName, setNewName] = useState('')
-  const [newStepCount, setNewStepCount] = useState('3')
+  const [seqType, setSeqType] = useState<'recommended'|'intensive'|'custom'>('recommended')
+  const [customSteps, setCustomSteps] = useState<Step[]>([
+    { day: 'Dag 0', name: 'Email 1', desc: 'Beskrivelse' }
+  ])
   const [editSteps, setEditSteps] = useState<Step[]>([])
 
   useEffect(() => { loadSequences() }, [])
@@ -41,11 +44,23 @@ export default function Sequences() {
     setLoading(false)
   }
 
+  function addCustomStep() {
+    if (customSteps.length >= 6) { show('⚠️', 'Maksimum 6 emails', ''); return }
+    setCustomSteps(prev => [...prev, { day: 'Dag ' + (prev.length * 7), name: `Email ${prev.length + 1}`, desc: 'Beskrivelse' }])
+  }
+
+  function removeCustomStep(i: number) {
+    if (customSteps.length <= 1) { show('⚠️', 'Minimum 1 email', ''); return }
+    setCustomSteps(prev => prev.filter((_, j) => j !== i))
+  }
+
   async function createSequence() {
     if (!newName.trim()) { show('⚠️', 'Skriv et navn', ''); return }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const steps = newStepCount === '3' ? defaultSteps3 : defaultSteps4
+
+    const steps = seqType === 'recommended' ? recommended : seqType === 'intensive' ? intensive : customSteps
+
     const { error } = await supabase.from('sequences').insert({
       dealer_id: user.id,
       name: newName,
@@ -56,6 +71,8 @@ export default function Sequences() {
     show('✅', `Sekvens "${newName}" oprettet`, '')
     setShowNew(false)
     setNewName('')
+    setSeqType('recommended')
+    setCustomSteps([{ day: 'Dag 0', name: 'Email 1', desc: 'Beskrivelse' }])
     loadSequences()
   }
 
@@ -81,30 +98,107 @@ export default function Sequences() {
   }
 
   function conversionRate(seq: Sequence) {
-    return seq.steps.length === 3 ? '7,4%' : '9,8%'
+    return seq.steps.length <= 3 ? '7,4%' : '9,8%'
   }
+
+  const previewSteps = seqType === 'recommended' ? recommended : seqType === 'intensive' ? intensive : customSteps
 
   return (
     <div>
       {/* NY SEKVENS MODAL */}
       {showNew && (
         <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowNew(false)}}>
-          <div className="modal modal-sm">
+          <div className="modal" style={{maxWidth:580}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
               <div className="font-head" style={{fontSize:17,fontWeight:700}}>Ny sekvens</div>
               <button onClick={()=>setShowNew(false)} style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text2)',cursor:'pointer',borderRadius:6,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>✕</button>
             </div>
+
             <div className="label" style={{marginTop:0}}>Sekvens navn</div>
             <input className="field-input" value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Fx: Standard Reactivation" style={{width:'100%'}}/>
-            <div className="label">Antal emails i sekvensen</div>
-            <select className="field-select" value={newStepCount} onChange={e=>setNewStepCount(e.target.value)} style={{width:'100%'}}>
-              <option value="3">3 emails — dag 0, 10, 20</option>
-              <option value="4">4 emails — dag 0, 7, 14, 21</option>
-            </select>
-            <div style={{background:'var(--surface2)',borderRadius:8,padding:12,marginTop:12,fontSize:11,color:'var(--text2)',lineHeight:1.7}}>
-              Systemet opretter automatisk 3 følge-op emails fordelt over måneden. Du kan redigere indholdet af hvert trin efterfølgende.
+
+            <div className="label">Vælg type</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:16}}>
+              {[
+                { key: 'recommended', label: '⭐ Anbefalet', sub: '3 emails · dag 0, 10, 20', badge: true },
+                { key: 'intensive', label: '🔥 Intensiv', sub: '4 emails · dag 0, 7, 14, 21', badge: false },
+                { key: 'custom', label: '⚙️ Tilpas selv', sub: 'Vælg dage og antal', badge: false },
+              ].map(opt => (
+                <div
+                  key={opt.key}
+                  onClick={()=>setSeqType(opt.key as typeof seqType)}
+                  style={{
+                    border:`2px solid ${seqType===opt.key?'var(--gold)':'var(--border)'}`,
+                    borderRadius:9,
+                    padding:'12px 10px',
+                    cursor:'pointer',
+                    background:seqType===opt.key?'var(--goldglow)':'var(--surface2)',
+                    transition:'all .15s',
+                    position:'relative',
+                  }}
+                >
+                  {opt.badge && (
+                    <div style={{position:'absolute',top:-8,right:8,background:'var(--gold)',color:'#1a1100',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:.5}}>ANBEFALET</div>
+                  )}
+                  <div style={{fontSize:12,fontWeight:600,marginBottom:4,color:'var(--text)'}}>{opt.label}</div>
+                  <div style={{fontSize:10,color:'var(--text2)'}}>{opt.sub}</div>
+                </div>
+              ))}
             </div>
-            <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:20,paddingTop:16,borderTop:'1px solid var(--border)'}}>
+
+            {/* Custom steps builder */}
+            {seqType === 'custom' && (
+              <div style={{marginBottom:16}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                  <div style={{fontSize:12,fontWeight:600}}>Emails i sekvensen ({customSteps.length}/6)</div>
+                  <button className="btn btn-ghost btn-sm" onClick={addCustomStep}>+ Tilføj email</button>
+                </div>
+                {customSteps.map((step, i) => (
+                  <div key={i} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:12,marginBottom:8}}>
+                    <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
+                      <div style={{width:24,height:24,borderRadius:'50%',background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'var(--gold)',flexShrink:0}}>{i+1}</div>
+                      <input
+                        className="field-input"
+                        value={step.day}
+                        onChange={e=>setCustomSteps(prev=>prev.map((s,j)=>j===i?{...s,day:e.target.value}:s))}
+                        placeholder="Fx: Dag 0"
+                        style={{width:100,flexShrink:0}}
+                      />
+                      <input
+                        className="field-input"
+                        value={step.name}
+                        onChange={e=>setCustomSteps(prev=>prev.map((s,j)=>j===i?{...s,name:e.target.value}:s))}
+                        placeholder="Navn på email"
+                        style={{flex:1}}
+                      />
+                      <button onClick={()=>removeCustomStep(i)} style={{background:'none',border:'none',color:'var(--text3)',cursor:'pointer',fontSize:16,padding:'0 4px'}}>✕</button>
+                    </div>
+                    <input
+                      className="field-input"
+                      value={step.desc}
+                      onChange={e=>setCustomSteps(prev=>prev.map((s,j)=>j===i?{...s,desc:e.target.value}:s))}
+                      placeholder="Kort beskrivelse"
+                      style={{width:'100%'}}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Preview */}
+            {seqType !== 'custom' && (
+              <div style={{background:'var(--surface2)',borderRadius:8,padding:12,marginBottom:16}}>
+                <div style={{fontSize:11,color:'var(--gold)',fontWeight:600,marginBottom:8,textTransform:'uppercase',letterSpacing:.8}}>Forhåndsvisning</div>
+                {previewSteps.map((s,i)=>(
+                  <div key={i} style={{display:'flex',gap:8,padding:'6px 0',borderBottom:i<previewSteps.length-1?'1px solid var(--border)':'none'}}>
+                    <div style={{width:20,height:20,borderRadius:'50%',background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'var(--gold)',flexShrink:0}}>{i+1}</div>
+                    <div><div style={{fontSize:12,fontWeight:500}}>{s.day} — {s.name}</div><div style={{fontSize:10,color:'var(--text2)'}}>{s.desc}</div></div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8,paddingTop:16,borderTop:'1px solid var(--border)'}}>
               <button className="btn btn-ghost" onClick={()=>setShowNew(false)}>Annuller</button>
               <button className="btn btn-gold" onClick={createSequence}>Opret sekvens</button>
             </div>
