@@ -1,8 +1,8 @@
 export default function Privacy() {
   return (
-    <div style={{maxWidth:720,margin:'0 auto',padding:'60px 24px',fontFamily:'Arial,sans-serif',color:'#1a1a1a',lineHeight:1.7}}>
+    <div style={{maxWidth:720,margin:'0 auto',padding:'60px 24px',fontFamily:'Arial,sans-serif',color:'#ffffff',lineHeight:1.7}}>
       <h1 style={{fontSize:28,fontWeight:700,marginBottom:8}}>Privatlivspolitik</h1>
-      <p style={{color:'#666',marginBottom:40}}>Sidst opdateret: April 2026</p>
+      <p style={{color:'#aaaaaa',marginBottom:40}}>Sidst opdateret: April 2026</p>
 
       <h2 style={{fontSize:18,fontWeight:600,marginBottom:8,marginTop:32}}>1. Hvem vi er</h2>
       <p>DriveDeal AI er en SaaS-platform der hjælper bilforhandlere med at genoplive kolde leads via AI-genererede emails. Denne privatlivspolitik beskriver hvordan vi indsamler, bruger og beskytter dine data.</p>
@@ -59,7 +59,7 @@ export default function Privacy() {
       <p>Har du spørgsmål til vores privatlivspolitik, kontakt os på:</p>
       <p style={{marginTop:8}}><strong>Email:</strong> kasperbastrup@gmail.com</p>
 
-      <div style={{marginTop:60,paddingTop:24,borderTop:'1px solid #eee',fontSize:13,color:'#999'}}>
+      <div style={{marginTop:60,paddingTop:24,borderTop:'1px solid #eee',fontSize:13,color:'#666666'}}>
         © 2026 DriveDeal AI. Alle rettigheder forbeholdes.
       </div>
     </div>
