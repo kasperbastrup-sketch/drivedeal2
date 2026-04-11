@@ -82,14 +82,14 @@ export default function Integrations() {
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
           <div>
             <div style={{fontSize:13,fontWeight:500}}>Send-grænse per dag</div>
-            <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Anbefalet: 80–150 emails om dagen</div>
+            <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Anbefalet: 80–100 emails om dagen</div>
           </div>
           <input
             className="field-input"
             type="number"
             value={dailyLimit}
             onChange={e=>setDailyLimit(e.target.value)}
-            style={{width:80,textAlign:'center'}}
+            style={{width:80,textAlign:'center'}} max="200"
           />
         </div>
 
