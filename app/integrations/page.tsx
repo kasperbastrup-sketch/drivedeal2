@@ -13,24 +13,26 @@ export default function Integrations() {
   const [saving, setSaving] = useState(false)
   const [gmailConnected, setGmailConnected] = useState(false)
   const [gmailEmail, setGmailEmail] = useState('')
+  const [reportFrequency, setReportFrequency] = useState('weekly')
+  const [notifyOnReply, setNotifyOnReply] = useState(true)
+  const [notifyOnBooking, setNotifyOnBooking] = useState(true)
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('dealers').select('antispam, email_tracking, daily_limit, gmail_connected, gmail_email').eq('id', user.id).single()
+      const { data } = await supabase.from('dealers').select('antispam, email_tracking, daily_limit, gmail_connected, gmail_email, report_frequency').eq('id', user.id).single()
       if (data) {
         setAntispam(data.antispam ?? true)
         setTracking(data.email_tracking ?? true)
         setDailyLimit(data.daily_limit?.toString() || '100')
         setGmailConnected(data.gmail_connected ?? false)
         setGmailEmail(data.gmail_email || '')
+        setReportFrequency(data.report_frequency || 'weekly')
       }
     }
-
     load()
 
-    // Tjek om Gmail netop blev forbundet
     const params = new URLSearchParams(window.location.search)
     if (params.get('gmail') === 'connected') {
       show('✅', 'Gmail forbundet!', 'Systemet kan nu sende emails på dine vegne')
@@ -48,7 +50,10 @@ export default function Integrations() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
     await supabase.from('dealers').update({
-      antispam, email_tracking: tracking, daily_limit: parseInt(dailyLimit),
+      antispam,
+      email_tracking: tracking,
+      daily_limit: parseInt(dailyLimit),
+      report_frequency: reportFrequency,
     }).eq('id', user.id)
     show('💾', tr.saveSettings, '')
     setSaving(false)
@@ -78,15 +83,13 @@ export default function Integrations() {
       <div className="panel">
         <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.emailSending}</div>
 
-        {/* Gmail forbindelse */}
-        <div style={{padding:'14px 0',borderBottom:'1px solid var(--border)',marginBottom:4}}>
+        {/* Gmail */}
+        <div style={{padding:'14px 0',borderBottom:'1px solid var(--border)'}}>
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>Gmail</div>
               <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6,marginBottom:8}}>
-                {gmailConnected
-                  ? `Forbundet som ${gmailEmail} — systemet sender emails på dine vegne`
-                  : 'Forbind din Gmail-konto så systemet kan sende emails automatisk'}
+                {gmailConnected ? `Forbundet som ${gmailEmail}` : 'Forbind din Gmail-konto så systemet kan sende emails automatisk'}
               </div>
               {gmailConnected ? (
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -98,23 +101,19 @@ export default function Integrations() {
                 </div>
               ) : (
                 <a href="/api/auth/gmail">
-                  <button className="btn btn-gold btn-sm">
-                    🔗 Forbind Gmail
-                  </button>
+                  <button className="btn btn-gold btn-sm">🔗 Forbind Gmail</button>
                 </a>
               )}
             </div>
           </div>
         </div>
 
-        {/* Anti-spam filter */}
+        {/* Anti-spam */}
         <div style={{padding:'14px 0',borderBottom:'1px solid var(--border)'}}>
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>{tr.antispamFilter}</div>
-              <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>
-                {antispam ? tr.antispamOn : tr.antispamOff}
-              </div>
+              <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>{antispam ? tr.antispamOn : tr.antispamOff}</div>
               {antispam ? (
                 <div style={{marginTop:8,display:'inline-flex',alignItems:'center',gap:6,background:'var(--greenbg)',border:'1px solid rgba(76,175,130,.2)',borderRadius:6,padding:'4px 10px'}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:'var(--green)',display:'inline-block'}}></span>
@@ -131,6 +130,7 @@ export default function Integrations() {
           </div>
         </div>
 
+        {/* Send-grænse */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
           <div>
             <div style={{fontSize:13,fontWeight:500}}>{tr.dailyLimit}</div>
@@ -139,6 +139,7 @@ export default function Integrations() {
           <input className="field-input" type="number" value={dailyLimit} onChange={e=>{const v=parseInt(e.target.value);if(v>200)setDailyLimit('200');else if(v<1)setDailyLimit('1');else setDailyLimit(e.target.value)}} style={{width:80,textAlign:'center'}} max="200"/>
         </div>
 
+        {/* Email tracking */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
           <div>
             <div style={{fontSize:13,fontWeight:500}}>{tr.emailTracking}</div>
@@ -178,12 +179,33 @@ export default function Integrations() {
 
       <div className="panel">
         <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.notifications}</div>
-        {tr.notifItems.map((l,i)=>(
-          <div key={l} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
-            <div><div style={{fontSize:13,fontWeight:500}}>{l}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{tr.notifDescs[i]}</div></div>
-            <button className={`toggle ${i<3?'on':'off'}`} onClick={e=>{const b=e.currentTarget;b.className=`toggle ${b.classList.contains('on')?'off':'on'}`}}></button>
+
+        {/* Notifikationer */}
+        {[
+          {label:'Email ved lead-svar', desc:'Straks notifikation', state:notifyOnReply, set:setNotifyOnReply},
+          {label:'Booking notifikation', desc:'Ved prøvetur', state:notifyOnBooking, set:setNotifyOnBooking},
+        ].map(item=>(
+          <div key={item.label} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
+            <div><div style={{fontSize:13,fontWeight:500}}>{item.label}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{item.desc}</div></div>
+            <button className={`toggle ${item.state?'on':'off'}`} onClick={()=>item.set(p=>!p)}></button>
           </div>
         ))}
+
+        {/* Rapport frekvens */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:500}}>Rapport frekvens</div>
+            <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Hvor tit vil du modtage resultatrapport</div>
+          </div>
+          <select className="field-select" value={reportFrequency} onChange={e=>setReportFrequency(e.target.value)}>
+            <option value="weekly">Ugentlig (hver mandag)</option>
+            <option value="monthly">Månedlig (første dag i måneden)</option>
+          </select>
+        </div>
+
+        <button className="btn btn-gold" style={{marginTop:14,width:'100%',justifyContent:'center'}} onClick={save} disabled={saving}>
+          {saving?tr.saving:tr.saveSettings}
+        </button>
       </div>
     </div>
   )

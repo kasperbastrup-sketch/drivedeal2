@@ -111,8 +111,8 @@ export const t = {
     monthlyPerformance: 'Månedlig præstation', personalized: 'Personaliseret',
     carSpecific: 'Bil-specifik', curious: 'Nysgerrig', offer: 'Tilbud', generic: 'Generisk',
     luxury: 'Luxury (BMW/Merc)', suv: 'SUV/Familievan', ev: 'Elbil (EV)', compact: 'Kompakt',
-    sales: 'salg', notifItems: ['Email ved lead-svar','Daglig rapport','Booking notifikation','Ugentlig rapport'],
-    notifDescs: ['Straks notifikation','Kl. 08:00','Ved prøvetur','Fredag kl. 17:00'],
+    sales: 'salg', notifItems: ['Email ved lead-svar','Booking notifikation','Rapport frekvens'],
+    notifDescs: ['Straks notifikation','Ved prøvetur','Ugentlig eller månedlig'],
   },
 
   es: {
