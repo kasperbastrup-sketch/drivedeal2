@@ -11,28 +11,61 @@ export default function Integrations() {
   const [tracking, setTracking] = useState(true)
   const [dailyLimit, setDailyLimit] = useState('100')
   const [saving, setSaving] = useState(false)
+  const [gmailConnected, setGmailConnected] = useState(false)
+  const [gmailEmail, setGmailEmail] = useState('')
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('dealers').select('antispam, email_tracking, daily_limit').eq('id', user.id).single()
+      const { data } = await supabase.from('dealers').select('antispam, email_tracking, daily_limit, gmail_connected, gmail_email').eq('id', user.id).single()
       if (data) {
         setAntispam(data.antispam ?? true)
         setTracking(data.email_tracking ?? true)
         setDailyLimit(data.daily_limit?.toString() || '100')
+        setGmailConnected(data.gmail_connected ?? false)
+        setGmailEmail(data.gmail_email || '')
       }
     }
+
     load()
+
+    // Tjek om Gmail netop blev forbundet
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('gmail') === 'connected') {
+      show('✅', 'Gmail forbundet!', 'Systemet kan nu sende emails på dine vegne')
+      window.history.replaceState({}, '', '/integrations')
+      load()
+    }
+    if (params.get('error')) {
+      show('❌', 'Gmail fejl', 'Prøv igen eller kontakt support')
+      window.history.replaceState({}, '', '/integrations')
+    }
   }, [])
 
   async function save() {
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
-    await supabase.from('dealers').update({ antispam, email_tracking: tracking, daily_limit: parseInt(dailyLimit) }).eq('id', user.id)
+    await supabase.from('dealers').update({
+      antispam, email_tracking: tracking, daily_limit: parseInt(dailyLimit),
+    }).eq('id', user.id)
     show('💾', tr.saveSettings, '')
     setSaving(false)
+  }
+
+  async function disconnectGmail() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('dealers').update({
+      gmail_access_token: null,
+      gmail_refresh_token: null,
+      gmail_email: null,
+      gmail_connected: false,
+    }).eq('id', user.id)
+    setGmailConnected(false)
+    setGmailEmail('')
+    show('✓', 'Gmail afbrudt', '')
   }
 
   function connectCRM(name: string) {
@@ -45,17 +78,49 @@ export default function Integrations() {
       <div className="panel">
         <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.emailSending}</div>
 
+        {/* Gmail forbindelse */}
+        <div style={{padding:'14px 0',borderBottom:'1px solid var(--border)',marginBottom:4}}>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>Gmail</div>
+              <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6,marginBottom:8}}>
+                {gmailConnected
+                  ? `Forbundet som ${gmailEmail} — systemet sender emails på dine vegne`
+                  : 'Forbind din Gmail-konto så systemet kan sende emails automatisk'}
+              </div>
+              {gmailConnected ? (
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{display:'inline-flex',alignItems:'center',gap:6,background:'var(--greenbg)',border:'1px solid rgba(76,175,130,.2)',borderRadius:6,padding:'4px 10px'}}>
+                    <span style={{width:6,height:6,borderRadius:'50%',background:'var(--green)',display:'inline-block'}}></span>
+                    <span style={{fontSize:11,color:'var(--green)',fontWeight:500}}>Forbundet</span>
+                  </div>
+                  <button className="btn btn-ghost btn-sm" onClick={disconnectGmail}>Afbryd</button>
+                </div>
+              ) : (
+                <a href="/api/auth/gmail">
+                  <button className="btn btn-gold btn-sm">
+                    🔗 Forbind Gmail
+                  </button>
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Anti-spam filter */}
         <div style={{padding:'14px 0',borderBottom:'1px solid var(--border)'}}>
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>{tr.antispamFilter}</div>
-              <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>{antispam?tr.antispamOn:tr.antispamOff}</div>
-              {antispam?(
+              <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>
+                {antispam ? tr.antispamOn : tr.antispamOff}
+              </div>
+              {antispam ? (
                 <div style={{marginTop:8,display:'inline-flex',alignItems:'center',gap:6,background:'var(--greenbg)',border:'1px solid rgba(76,175,130,.2)',borderRadius:6,padding:'4px 10px'}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:'var(--green)',display:'inline-block'}}></span>
                   <span style={{fontSize:11,color:'var(--green)',fontWeight:500}}>{tr.protectedFromSpam}</span>
                 </div>
-              ):(
+              ) : (
                 <div style={{marginTop:8,display:'inline-flex',alignItems:'center',gap:6,background:'var(--redbg)',border:'1px solid rgba(224,85,85,.2)',borderRadius:6,padding:'4px 10px'}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:'var(--red)',display:'inline-block'}}></span>
                   <span style={{fontSize:11,color:'var(--red)',fontWeight:500}}>{tr.noSpamProtection}</span>
@@ -80,14 +145,6 @@ export default function Integrations() {
             <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{tr.emailTrackingDesc}</div>
           </div>
           <button className={`toggle ${tracking?'on':'off'}`} onClick={()=>setTracking(p=>!p)}></button>
-        </div>
-
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0'}}>
-          <div>
-            <div style={{fontSize:13,fontWeight:500}}>Gmail</div>
-            <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{tr.gmailConnected}</div>
-          </div>
-          <span className="pill pill-green">● {tr.active}</span>
         </div>
 
         <button className="btn btn-gold" style={{marginTop:14,width:'100%',justifyContent:'center'}} onClick={save} disabled={saving}>
