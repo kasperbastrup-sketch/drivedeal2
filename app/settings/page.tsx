@@ -87,7 +87,7 @@ export default function Settings() {
   return (
     <div>
       <div className="tab-bar">
-        {[[' general',tr.dealerInfo],['ai',tr.aiPersonality],['email',tr.emailSignature],['plan',tr.plan]].map(([k,l])=>(
+        {[['general',tr.dealerInfo],['ai',tr.aiPersonality],['email',tr.emailSignature]].map(([k,l])=>(
           <button key={k} className={`tab${tab===k.trim()?' active':''}`} onClick={()=>setTab(k.trim())}>{l}</button>
         ))}
       </div>

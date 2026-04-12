@@ -1,4 +1,16 @@
+'use client'
+import { useEffect } from 'react'
+
 export default function Privacy() {
+  useEffect(() => {
+    document.body.style.overflow = 'auto'
+    document.documentElement.style.overflow = 'auto'
+    return () => {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+    }
+  }, [])
+
   return (
     <div style={{maxWidth:720,margin:'0 auto',padding:'60px 24px',fontFamily:'Arial,sans-serif',color:'#ffffff',lineHeight:1.7}}>
       <h1 style={{fontSize:28,fontWeight:700,marginBottom:8}}>Privatlivspolitik</h1>
@@ -33,7 +45,7 @@ export default function Privacy() {
         <li>Deler ikke Gmail-adgang med tredjepart</li>
         <li>Gemmer kun det OAuth token der er nødvendigt for at sende emails</li>
       </ul>
-      <p style={{marginTop:8}}>DriveDeal AIs brug af Google APIs overholder <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" style={{color:'#1a73e8'}}>Googles API Services User Data Policy</a>, herunder Limited Use kravene.</p>
+      <p style={{marginTop:8}}>DriveDeal AIs brug af Google APIs overholder <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" style={{color:'#c9a96e'}}>Googles API Services User Data Policy</a>, herunder Limited Use kravene.</p>
 
       <h2 style={{fontSize:18,fontWeight:600,marginBottom:8,marginTop:32}}>5. GDPR og dine rettigheder</h2>
       <p>Vi overholder GDPR. Du har ret til at:</p>
@@ -59,7 +71,7 @@ export default function Privacy() {
       <p>Har du spørgsmål til vores privatlivspolitik, kontakt os på:</p>
       <p style={{marginTop:8}}><strong>Email:</strong> kasperbastrup@gmail.com</p>
 
-      <div style={{marginTop:60,paddingTop:24,borderTop:'1px solid #eee',fontSize:13,color:'#666666'}}>
+      <div style={{marginTop:60,paddingTop:24,borderTop:'1px solid #333',fontSize:13,color:'#666'}}>
         © 2026 DriveDeal AI. Alle rettigheder forbeholdes.
       </div>
     </div>

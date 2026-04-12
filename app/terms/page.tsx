@@ -1,4 +1,16 @@
+'use client'
+import { useEffect } from 'react'
+
 export default function Terms() {
+  useEffect(() => {
+    document.body.style.overflow = 'auto'
+    document.documentElement.style.overflow = 'auto'
+    return () => {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+    }
+  }, [])
+
   return (
     <div style={{maxWidth:720,margin:'0 auto',padding:'60px 24px',fontFamily:'Arial,sans-serif',color:'#ffffff',lineHeight:1.7}}>
       <h1 style={{fontSize:28,fontWeight:700,marginBottom:8}}>Vilkår og betingelser</h1>
