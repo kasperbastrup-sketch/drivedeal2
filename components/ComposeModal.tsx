@@ -37,7 +37,7 @@ export default function ComposeModal({ lead, onClose, onSent }: Props) {
 
   function send() {
     if (!lead) return
-    onSent(lead.id)
+    onSent?.(lead.id)
     onClose()
     show('📤', `Email sendt til ${lead.name}`, subject)
   }
