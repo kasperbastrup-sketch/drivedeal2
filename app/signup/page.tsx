@@ -1,91 +1,103 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
 export default function Signup() {
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [dealer, setDealer] = useState('')
+  const [name, setName] = useState('')
+  const [dealerName, setDealerName] = useState('')
+  const [accepted, setAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
+    if (!accepted) { setError('Du skal acceptere vilkår og privatlivspolitik for at fortsætte.'); return }
     setLoading(true)
     setError('')
 
-    try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signupError } = await supabase.auth.signUp({ email, password })
+    if (signupError) { setError(signupError.message); setLoading(false); return }
+
+    if (data.user) {
+      await supabase.from('dealers').insert({
+        id: data.user.id,
         email,
-        password,
-        options: {
-          data: { name, dealer_name: dealer }
-        }
+        name,
+        dealer_name: dealerName,
+        currency: 'DKK',
+        avg_car_price: 260000,
+        ai_language: 'dansk',
+        app_language: 'da',
+        antispam: true,
+        daily_limit: 100,
+        report_frequency: 'weekly',
       })
-
-      if (signUpError) throw signUpError
-
-      if (data.user) {
-        await supabase.from('dealers').insert({
-          id: data.user.id,
-          name,
-          email,
-          dealer_name: dealer,
-        })
-      }
-
-      router.push('/login?signup=success')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Noget gik galt. Prøv igen.')
     }
+
+    router.push('/')
     setLoading(false)
   }
 
   return (
-    <div style={{minHeight:'100vh',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div style={{width:440,background:'var(--surface)',border:'1px solid var(--border2)',borderRadius:16,padding:36,boxShadow:'0 40px 80px rgba(0,0,0,.6)'}}>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:28}}>
-          <div style={{width:36,height:36,borderRadius:9,background:'linear-gradient(135deg,var(--gold3),var(--gold))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🚗</div>
-          <div>
-            <div className="font-head" style={{fontSize:17,fontWeight:700,color:'var(--text)'}}>DriveDeal AI</div>
-            <div style={{fontSize:10,color:'var(--gold)',letterSpacing:2,textTransform:'uppercase'}}>Lead Engine</div>
-          </div>
+    <div style={{minHeight:'100vh',background:'#0a0a0a',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      <div style={{width:'100%',maxWidth:420}}>
+        <div style={{textAlign:'center',marginBottom:32}}>
+          <div style={{width:48,height:48,borderRadius:12,background:'linear-gradient(135deg,#c9a96e,#b8860b)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 16px'}}>🚗</div>
+          <div style={{fontSize:22,fontWeight:700,color:'#fff',marginBottom:6}}>Opret konto</div>
+          <div style={{fontSize:13,color:'#666'}}>14 dages gratis prøveperiode · Intet kreditkort</div>
         </div>
 
-        <div className="font-head" style={{fontSize:20,fontWeight:700,marginBottom:4}}>Opret konto</div>
-        <div style={{fontSize:12,color:'var(--text2)',marginBottom:24}}>Kom i gang på under 2 minutter</div>
+        <form onSubmit={handleSignup} style={{background:'#111',border:'1px solid #1a1a1a',borderRadius:16,padding:28}}>
+          {error && (
+            <div style={{background:'rgba(224,85,85,.1)',border:'1px solid rgba(224,85,85,.3)',borderRadius:8,padding:'10px 14px',fontSize:12,color:'#e05555',marginBottom:16}}>
+              {error}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="label" style={{marginTop:0}}>Forhandlernavn</div>
-          <input className="field-input" value={dealer} onChange={e=>setDealer(e.target.value)} placeholder="Mercedes-Benz Madrid" style={{width:'100%'}} required/>
-
-          <div className="label">Dit navn</div>
-          <input className="field-input" value={name} onChange={e=>setName(e.target.value)} placeholder="Carlos Fernández" style={{width:'100%'}} required/>
-
-          <div className="label">Email</div>
-          <input className="field-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="carlos@mercedesimadrid.es" style={{width:'100%'}} required/>
-
-          <div className="label">Password</div>
-          <input className="field-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 6 tegn" style={{width:'100%',marginBottom:20}} required minLength={6}/>
-
-          {error && <div style={{fontSize:12,color:'var(--red)',marginBottom:12,padding:'8px 12px',background:'var(--redbg)',borderRadius:7}}>{error}</div>}
-
-          <div style={{background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.2)',borderRadius:8,padding:12,marginBottom:20,fontSize:11,color:'var(--text2)'}}>
-            <div style={{color:'var(--gold)',fontWeight:600,marginBottom:4}}>✓ 14 dages gratis prøveperiode</div>
-            <div>✓ Ingen kreditkort påkrævet</div>
-            <div>✓ Opsætning tager under 20 minutter</div>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,color:'#888',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:6}}>Dit navn</label>
+            <input className="field-input" value={name} onChange={e=>setName(e.target.value)} placeholder="Lars Jensen" style={{width:'100%'}} required/>
           </div>
 
-          <button type="submit" className="btn btn-gold" style={{width:'100%',justifyContent:'center',padding:'10px 20px',fontSize:14}} disabled={loading}>
-            {loading ? 'Opretter konto...' : 'Opret gratis konto →'}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,color:'#888',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:6}}>Forhandlernavn</label>
+            <input className="field-input" value={dealerName} onChange={e=>setDealerName(e.target.value)} placeholder="Jensen Biler ApS" style={{width:'100%'}} required/>
+          </div>
+
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,color:'#888',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:6}}>Email</label>
+            <input className="field-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="lars@jensenbiler.dk" style={{width:'100%'}} required/>
+          </div>
+
+          <div style={{marginBottom:20}}>
+            <label style={{fontSize:11,color:'#888',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:6}}>Password</label>
+            <input className="field-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 6 tegn" style={{width:'100%'}} required minLength={6}/>
+          </div>
+
+          <div style={{marginBottom:20,display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer'}} onClick={()=>setAccepted(p=>!p)}>
+            <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${accepted?'#c9a96e':'#333'}`,background:accepted?'#c9a96e':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1,transition:'all .15s'}}>
+              {accepted && <span style={{color:'#1a1100',fontSize:11,fontWeight:700}}>✓</span>}
+            </div>
+            <div style={{fontSize:12,color:'#888',lineHeight:1.6,userSelect:'none'}}>
+              Jeg accepterer DriveDeal AIs{' '}
+              <a href="/privacy#terms" target="_blank" onClick={e=>e.stopPropagation()} style={{color:'#c9a96e',textDecoration:'none'}}>vilkår og betingelser</a>
+              {' '}og{' '}
+              <a href="/privacy" target="_blank" onClick={e=>e.stopPropagation()} style={{color:'#c9a96e',textDecoration:'none'}}>privatlivspolitik</a>
+            </div>
+          </div>
+
+          <button type="submit" disabled={loading || !accepted} className="btn btn-gold" style={{width:'100%',justifyContent:'center',opacity:(!accepted||loading)?0.5:1}}>
+            {loading ? 'Opretter...' : 'Opret gratis konto →'}
           </button>
         </form>
 
-        <div style={{marginTop:20,textAlign:'center',fontSize:12,color:'var(--text2)'}}><a href="/privacy" style={{color:'var(--text3)',textDecoration:'none',fontSize:11}}>Privatlivspolitik</a><br/><br/>
-          Har du allerede en konto? <a href="/login" style={{color:'var(--gold)'}}>Log ind</a>
+        <div style={{textAlign:'center',marginTop:20,fontSize:13,color:'#555'}}>
+          Har du allerede en konto?{' '}
+          <a href="/login" style={{color:'#c9a96e',textDecoration:'none'}}>Log ind</a>
         </div>
       </div>
     </div>
