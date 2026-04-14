@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Lead } from '@/lib/data'
 import { useToast } from './Toast'
 
-interface Props { lead: Lead | null; onClose: ()=>void; onSent: (id:number)=>void }
+interface Props { lead: Lead | null; onClose: ()=>void; onSent?: (id:string)=>void }
 
 export default function ComposeModal({ lead, onClose, onSent }: Props) {
   const [purpose, setPurpose] = useState('proevekoer')

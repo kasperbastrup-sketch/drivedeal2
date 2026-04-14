@@ -1,12 +1,12 @@
 export type LeadStatus = 'cold' | 'warm' | 'sent' | 'booked' | 'replied'
 
 export interface Lead {
-  id: number
+  id: string
   name: string
   email: string
   phone: string
   car: string
-  days: number
+  days?: number
   source: string
   status: LeadStatus
   score: number
