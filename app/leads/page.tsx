@@ -19,7 +19,7 @@ interface EmailLog {
 export default function Leads() {
   const { tr } = useLang()
   const { show } = useToast()
-  const { refreshKey } = useRefresh()
+  const { refresh } = useRefresh()
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -31,7 +31,7 @@ export default function Leads() {
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
 
-  useEffect(() => { loadLeads() }, [refreshKey])
+  useEffect(() => { loadLeads() }, [])
 
   async function loadLeads() {
     setLoading(true)
