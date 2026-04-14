@@ -6,6 +6,8 @@ import { useRefresh } from '@/components/AppShell'
 import { getBlacklistedEmails } from '@/lib/blacklist'
 import { calculateScore } from '@/lib/scoreLeads'
 import { useLang } from '@/lib/useLang'
+import { readFileAsUTF8 } from "@/lib/readFileUTF8"
+import { readFileAsUTF8 } from "@/lib/readFileUTF8"
 import { mapCSV } from '@/lib/csvMapper'
 
 export default function Import() {
@@ -22,7 +24,7 @@ export default function Import() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { show('❌', 'Fejl', ''); setImporting(false); return }
 
-    const text = await file.text()
+    const text = await readFileAsUTF8(file)
     const { leads: parsed, source, skipped: parseSkipped, total } = mapCSV(text)
 
     setDetectedSource(source)
