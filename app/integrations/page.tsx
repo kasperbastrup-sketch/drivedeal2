@@ -194,6 +194,18 @@ export default function Integrations() {
           </div>
         ))}
 
+        {/* Send til segment */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:500}}>Send daglige emails til</div>
+            <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Vælg hvilke leads systemet kontakter automatisk</div>
+          </div>
+          <select className="field-select" value={sendToSegments} onChange={e=>setSendToSegments(e.target.value)}>
+            <option value="all">Alle leads (kolde + varme)</option>
+            <option value="cold">Kun kolde leads</option>
+            <option value="warm">Kun varme leads</option>
+          </select>
+        </div>
         {/* Rapport frekvens */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
           <div>

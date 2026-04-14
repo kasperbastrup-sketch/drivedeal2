@@ -192,7 +192,7 @@ export default function Leads() {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
           {filters.map(f => (
-            <button key={f.key} className={`filter-btn${filter===f.key?' active':''}`} onClick={() => setFilter(f.key)}>
+            <button key={f.key} onClick={() => setFilter(f.key)} style={{background:filter===f.key?'var(--goldglow)':'var(--surface2)',border:`1px solid ${filter===f.key?'rgba(201,169,110,.4)':'var(--border)'}`,color:filter===f.key?'var(--gold)':'var(--text2)',padding:'5px 12px',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:filter===f.key?600:400,fontFamily:'var(--font-body)'}}>
               {f.label} <span style={{opacity:.6}}>({f.count})</span>
             </button>
           ))}
