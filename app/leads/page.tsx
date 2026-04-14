@@ -9,7 +9,7 @@ import { useRefresh } from '@/components/AppShell'
 interface Lead {
   id: string; dealer_id: string; name: string; email: string; phone: string;
   car: string; days_since_contact: number; source: string; status: string;
-  score: number; last_contacted_at: string; created_at: string;
+  score: number; last_contacted_at: string; created_at: string; days?: number;
 }
 
 interface EmailLog {
