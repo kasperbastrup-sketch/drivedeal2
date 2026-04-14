@@ -1,197 +1,250 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import ComposeModal from '@/components/ComposeModal'
 import { useToast } from '@/components/Toast'
-import { useRefresh } from '@/components/AppShell'
+import ComposeModal from '@/components/ComposeModal'
 import { useLang } from '@/lib/useLang'
-
-type LeadStatus = 'cold' | 'warm' | 'sent' | 'booked' | 'replied'
+import { useRefresh } from '@/components/AppShell'
 
 interface Lead {
-  id: string
-  name: string
-  email: string
-  phone: string
-  car: string
-  days_since_contact: number
-  source: string
-  status: LeadStatus
-  score: number
+  id: string; dealer_id: string; name: string; email: string; phone: string;
+  car: string; days_since_contact: number; source: string; status: string;
+  score: number; last_contacted_at: string; created_at: string;
 }
 
-function scoreColor(s: number) { return s>=80?'var(--green)':s>=60?'var(--gold)':'var(--text2)' }
+interface EmailLog {
+  id: string; subject: string; body: string; status: string; created_at: string;
+}
 
 export default function Leads() {
+  const { tr } = useLang()
+  const { show } = useToast()
+  const { refreshKey } = useRefresh()
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<string[]>([])
   const [composeLead, setComposeLead] = useState<Lead|null>(null)
   const [editLead, setEditLead] = useState<Lead|null>(null)
-  const [editForm, setEditForm] = useState<Partial<Lead>>({})
-  const { show } = useToast()
-  const { refresh } = useRefresh()
-  const { tr } = useLang()
+  const [emailLogLead, setEmailLogLead] = useState<Lead|null>(null)
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
 
-  const statusBadge: Record<LeadStatus, React.ReactNode> = {
-    cold: <span className="badge badge-cold"><span className="badge-dot"></span>{tr.coldBadge}</span>,
-    warm: <span className="badge badge-warm"><span className="badge-dot"></span>{tr.warmBadge}</span>,
-    sent: <span className="badge badge-sent"><span className="badge-dot"></span>{tr.sentBadge}</span>,
-    booked: <span className="badge badge-booked"><span className="badge-dot"></span>{tr.bookedBadge}</span>,
-    replied: <span className="badge badge-replied"><span className="badge-dot"></span>{tr.repliedBadge}</span>,
-  }
-
-  useEffect(() => { loadLeads() }, [])
+  useEffect(() => { loadLeads() }, [refreshKey])
 
   async function loadLeads() {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
-    const { data } = await supabase.from('leads').select('*').eq('dealer_id', user.id).order('created_at', { ascending: false })
+    const { data } = await supabase.from('leads').select('*').eq('dealer_id', user.id).order('score', { ascending: false })
     setLeads(data || [])
     setLoading(false)
   }
 
+  async function loadEmailLogs(lead: Lead) {
+    setEmailLogLead(lead)
+    setLogsLoading(true)
+    const { data } = await supabase.from('email_logs').select('*').eq('lead_id', lead.id).order('created_at', { ascending: false })
+    setEmailLogs(data || [])
+    setLogsLoading(false)
+  }
+
   async function deleteLead(id: string) {
-    const { error } = await supabase.from('leads').delete().eq('id', id)
-    if (error) { show('❌', 'Fejl ved sletning', ''); return }
+    await supabase.from('leads').delete().eq('id', id)
     setLeads(prev => prev.filter(l => l.id !== id))
-    refresh()
-    show('🗑️', 'Lead slettet', '')
+    show('🗑️', 'Slettet', '')
   }
 
   async function deleteSelected() {
-    const ids = Array.from(selected)
-    const { error } = await supabase.from('leads').delete().in('id', ids)
-    if (error) { show('❌', 'Fejl ved sletning', ''); return }
-    setLeads(prev => prev.filter(l => !selected.has(l.id)))
-    setSelected(new Set())
-    refresh()
-    show('🗑️', `${ids.length} leads slettet`, '')
+    await Promise.all(selected.map(id => supabase.from('leads').delete().eq('id', id)))
+    setLeads(prev => prev.filter(l => !selected.includes(l.id)))
+    setSelected([])
+    show('🗑️', `${selected.length} slettet`, '')
   }
 
   async function saveEdit() {
     if (!editLead) return
-    const { error } = await supabase.from('leads').update(editForm).eq('id', editLead.id)
-    if (error) { show('❌', 'Fejl ved gemning', ''); return }
-    setLeads(prev => prev.map(l => l.id === editLead.id ? { ...l, ...editForm } : l))
+    await supabase.from('leads').update({
+      name: editLead.name, email: editLead.email, phone: editLead.phone,
+      car: editLead.car, status: editLead.status,
+    }).eq('id', editLead.id)
+    setLeads(prev => prev.map(l => l.id === editLead.id ? editLead : l))
     setEditLead(null)
-    show('💾', 'Lead opdateret', '')
+    show('💾', 'Gemt', '')
   }
 
-  async function onSent(id: string) {
-    await supabase.from('leads').update({ status: 'sent' }).eq('id', id)
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, status: 'sent' as LeadStatus } : l))
-  }
-
-  const counts: Record<string,number> = { all: leads.length, cold:0, warm:0, sent:0, replied:0, booked:0 }
-  leads.forEach(l => counts[l.status] = (counts[l.status]||0) + 1)
-
-  const visible = leads.filter(l => {
-    const mf = filter==='all'||l.status===filter
-    const q = search.toLowerCase()
-    const ms = !q||l.name.toLowerCase().includes(q)||l.email.toLowerCase().includes(q)||(l.car||'').toLowerCase().includes(q)
-    return mf&&ms
+  const filtered = leads.filter(l => {
+    const matchFilter = filter === 'all' || l.status === filter
+    const matchSearch = !search || l.name?.toLowerCase().includes(search.toLowerCase()) || l.email?.toLowerCase().includes(search.toLowerCase()) || l.car?.toLowerCase().includes(search.toLowerCase())
+    return matchFilter && matchSearch
   })
 
-  function toggleSelect(id: string, checked: boolean) {
-    setSelected(prev => { const s = new Set(prev); checked ? s.add(id) : s.delete(id); return s })
+  const counts = {
+    all: leads.length,
+    cold: leads.filter(l => l.status === 'cold').length,
+    warm: leads.filter(l => l.status === 'warm').length,
+    sent: leads.filter(l => l.status === 'sent').length,
+    replied: leads.filter(l => l.status === 'replied').length,
+    booked: leads.filter(l => l.status === 'booked').length,
   }
 
-  const dataForCompose = composeLead ? {
-    id: 0, name: composeLead.name, email: composeLead.email,
-    phone: composeLead.phone || '', car: composeLead.car || '',
-    days: composeLead.days_since_contact || 0, source: composeLead.source || '',
-    status: composeLead.status, score: composeLead.score || 50,
-  } : null
-
-  const filterLabels: Record<string,string> = {
-    all: tr.all, cold: tr.cold, warm: tr.warm,
-    sent: tr.aiSent, replied: tr.repliedBadge, booked: tr.booked
+  function statusPill(status: string) {
+    const map: Record<string, { label: string; color: string; bg: string }> = {
+      cold: { label: tr.coldBadge, color: 'var(--blue)', bg: 'rgba(100,160,255,.1)' },
+      warm: { label: tr.warmBadge, color: 'var(--gold)', bg: 'var(--goldglow)' },
+      sent: { label: tr.sentBadge, color: 'var(--green)', bg: 'var(--greenbg)' },
+      replied: { label: tr.repliedBadge, color: '#a78bfa', bg: 'rgba(167,139,250,.1)' },
+      booked: { label: tr.bookedBadge, color: 'var(--green)', bg: 'var(--greenbg)' },
+    }
+    const s = map[status] || map.cold
+    return <span style={{fontSize:10,fontWeight:600,padding:'2px 8px',borderRadius:10,color:s.color,background:s.bg}}>{s.label}</span>
   }
+
+  function scoreBar(score: number) {
+    const color = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--gold)' : 'var(--text3)'
+    return (
+      <div style={{display:'flex',alignItems:'center',gap:6}}>
+        <div className="score-bar"><div style={{width:`${score}%`,height:'100%',background:color,borderRadius:2}}></div></div>
+        <span style={{fontSize:10,color,fontWeight:600}}>{score}</span>
+      </div>
+    )
+  }
+
+  const filters = [
+    { key: 'all', label: tr.all, count: counts.all },
+    { key: 'cold', label: tr.cold, count: counts.cold },
+    { key: 'warm', label: tr.warm, count: counts.warm },
+    { key: 'sent', label: tr.aiSent, count: counts.sent },
+    { key: 'replied', label: tr.replied, count: counts.replied },
+    { key: 'booked', label: tr.booked, count: counts.booked },
+  ]
 
   return (
     <div>
-      {composeLead && dataForCompose && (
-        <ComposeModal lead={dataForCompose} onClose={()=>setComposeLead(null)} onSent={()=>onSent(composeLead.id)}/>
-      )}
+      {composeLead && <ComposeModal lead={composeLead} onClose={() => setComposeLead(null)} />}
 
+      {/* REDIGER MODAL */}
       {editLead && (
-        <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setEditLead(null)}}>
+        <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setEditLead(null) }}>
           <div className="modal modal-sm">
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-              <div className="font-head" style={{fontSize:17,fontWeight:700}}>Rediger lead</div>
-              <button onClick={()=>setEditLead(null)} style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text2)',cursor:'pointer',borderRadius:6,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>✕</button>
+              <div className="font-head" style={{fontSize:16,fontWeight:700}}>Rediger lead</div>
+              <button onClick={() => setEditLead(null)} style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text2)',cursor:'pointer',borderRadius:6,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
             </div>
-            <div className="label" style={{marginTop:0}}>{tr.yourName}</div>
-            <input className="field-input" value={editForm.name||''} onChange={e=>setEditForm(p=>({...p,name:e.target.value}))} style={{width:'100%'}}/>
-            <div className="label">{tr.email}</div>
-            <input className="field-input" type="email" value={editForm.email||''} onChange={e=>setEditForm(p=>({...p,email:e.target.value}))} style={{width:'100%'}}/>
-            <div className="label">{tr.phone}</div>
-            <input className="field-input" value={editForm.phone||''} onChange={e=>setEditForm(p=>({...p,phone:e.target.value}))} style={{width:'100%'}}/>
-            <div className="label">{tr.carInterestField}</div>
-            <input className="field-input" value={editForm.car||''} onChange={e=>setEditForm(p=>({...p,car:e.target.value}))} style={{width:'100%'}}/>
-            <div className="label">{tr.status}</div>
-            <select className="field-select" value={editForm.status||'cold'} onChange={e=>setEditForm(p=>({...p,status:e.target.value as LeadStatus}))} style={{width:'100%'}}>
-              <option value="cold">{tr.coldBadge}</option>
-              <option value="warm">{tr.warmBadge}</option>
-              <option value="sent">{tr.sentBadge}</option>
-              <option value="replied">{tr.repliedBadge}</option>
-              <option value="booked">{tr.bookedBadge}</option>
+            {[['Navn','name'],['Email','email'],['Telefon','phone'],['Bil interesse','car']].map(([label,key]) => (
+              <div key={key}>
+                <div className="label" style={{marginTop:key==='name'?0:undefined}}>{label}</div>
+                <input className="field-input" value={editLead[key as keyof Lead] as string || ''} onChange={e => setEditLead({...editLead,[key]:e.target.value})} style={{width:'100%'}}/>
+              </div>
+            ))}
+            <div className="label">Status</div>
+            <select className="field-select" value={editLead.status} onChange={e => setEditLead({...editLead,status:e.target.value})} style={{width:'100%'}}>
+              {['cold','warm','sent','replied','booked'].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:20,paddingTop:16,borderTop:'1px solid var(--border)'}}>
-              <button className="btn btn-ghost" onClick={()=>setEditLead(null)}>Annuller</button>
-              <button className="btn btn-gold" onClick={saveEdit}>{tr.saveSettings}</button>
+              <button className="btn btn-ghost" onClick={() => setEditLead(null)}>Annuller</button>
+              <button className="btn btn-gold" onClick={saveEdit}>Gem</button>
             </div>
           </div>
         </div>
       )}
 
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
-        {['all','cold','warm','sent','replied','booked'].map(f=>(
-          <button key={f} className={`filter-chip${filter===f?' active':''}`} onClick={()=>setFilter(f)}>
-            {filterLabels[f]} <span style={{opacity:.5}}>({counts[f]||0})</span>
-          </button>
-        ))}
-        <div style={{display:'flex',alignItems:'center',gap:7,background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:7,padding:'6px 11px',marginLeft:'auto'}}>
-          <input placeholder={tr.searchPlaceholder} value={search} onChange={e=>setSearch(e.target.value)} style={{background:'none',border:'none',outline:'none',color:'var(--text)',fontSize:12,fontFamily:'var(--font-body)',width:180}}/>
+      {/* EMAIL LOG MODAL */}
+      {emailLogLead && (
+        <div className="overlay" onClick={e => { if (e.target === e.currentTarget) { setEmailLogLead(null); setEmailLogs([]) } }}>
+          <div className="modal">
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+              <div>
+                <div className="font-head" style={{fontSize:16,fontWeight:700}}>Sendte emails</div>
+                <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{emailLogLead.name} · {emailLogLead.email}</div>
+              </div>
+              <button onClick={() => { setEmailLogLead(null); setEmailLogs([]) }} style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text2)',cursor:'pointer',borderRadius:6,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+            </div>
+
+            {logsLoading && <div style={{textAlign:'center',padding:30,color:'var(--text3)'}}>Henter emails...</div>}
+
+            {!logsLoading && emailLogs.length === 0 && (
+              <div style={{textAlign:'center',padding:40,color:'var(--text3)'}}>
+                <div style={{fontSize:28,marginBottom:10}}>📭</div>
+                <div>Ingen emails sendt til dette lead endnu</div>
+              </div>
+            )}
+
+            {!logsLoading && emailLogs.map((log, i) => (
+              <div key={log.id} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:10,padding:16,marginBottom:10}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{log.subject}</div>
+                  <div style={{fontSize:10,color:'var(--text3)'}}>{new Date(log.created_at).toLocaleDateString('da-DK', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+                </div>
+                <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.7,whiteSpace:'pre-wrap'}}>{log.body}</div>
+              </div>
+            ))}
+
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:16}}>
+              <button className="btn btn-ghost" onClick={() => { setEmailLogLead(null); setEmailLogs([]) }}>Luk</button>
+            </div>
+          </div>
         </div>
-        {selected.size>0&&(
-          <button className="btn btn-red btn-sm" onClick={deleteSelected}>{tr.deleteSelected} {selected.size}</button>
-        )}
+      )}
+
+      {/* HEADER */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {filters.map(f => (
+            <button key={f.key} className={`filter-btn${filter===f.key?' active':''}`} onClick={() => setFilter(f.key)}>
+              {f.label} <span style={{opacity:.6}}>({f.count})</span>
+            </button>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          {selected.length > 0 && (
+            <button className="btn btn-red btn-sm" onClick={deleteSelected}>{tr.deleteSelected} ({selected.length})</button>
+          )}
+          <input className="field-input" placeholder={tr.searchPlaceholder} value={search} onChange={e => setSearch(e.target.value)} style={{width:220}}/>
+        </div>
       </div>
 
+      {/* TABEL */}
       <div className="table-wrap">
-        <table>
-          <thead><tr>
-            <th style={{width:32}}><input type="checkbox" style={{accentColor:'var(--gold)'}} onChange={e=>{if(e.target.checked)setSelected(new Set(visible.map(l=>l.id)));else setSelected(new Set())}}/></th>
-            <th>{tr.contact}</th><th>{tr.carInterest}</th><th>{tr.lastContacted}</th><th>{tr.source}</th><th>{tr.status}</th><th>{tr.aiScore}</th><th></th>
-          </tr></thead>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{borderBottom:'1px solid var(--border)'}}>
+              <th style={{width:32,padding:'10px 12px'}}><input type="checkbox" onChange={e => setSelected(e.target.checked ? filtered.map(l => l.id) : [])} checked={selected.length === filtered.length && filtered.length > 0}/></th>
+              {[tr.contact,tr.carInterest,tr.lastContacted,tr.source,tr.status,tr.aiScore,''].map((h,i) => (
+                <th key={i} style={{padding:'10px 12px',textAlign:'left',fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:.8,whiteSpace:'nowrap'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
           <tbody>
-            {loading&&<tr><td colSpan={8} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>Henter leads...</td></tr>}
-            {!loading&&visible.length===0&&(
+            {loading && (
+              <tr><td colSpan={8} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>...</td></tr>
+            )}
+            {!loading && filtered.length === 0 && (
               <tr><td colSpan={8} style={{textAlign:'center',padding:60,color:'var(--text3)'}}>
-                <div style={{fontSize:32,marginBottom:10}}>📭</div>
+                <div style={{fontSize:32,marginBottom:10}}>👥</div>
                 <div style={{fontSize:14,fontWeight:600,color:'var(--text)',marginBottom:6}}>{tr.noLeadsYet}</div>
                 <div style={{fontSize:12}}>{tr.goToImport}</div>
               </td></tr>
             )}
-            {visible.map(l=>(
-              <tr key={l.id}>
-                <td><input type="checkbox" checked={selected.has(l.id)} onChange={e=>toggleSelect(l.id,e.target.checked)} style={{accentColor:'var(--gold)'}}/></td>
-                <td><div style={{fontWeight:500}}>{l.name}</div><div style={{fontSize:11,color:'var(--text2)'}}>{l.email}</div></td>
-                <td style={{fontSize:12}}>{l.car}</td>
-                <td style={{fontSize:12,color:'var(--text2)'}}>{l.days_since_contact} {tr.daysSince}</td>
-                <td style={{fontSize:11,color:'var(--text3)'}}>{l.source}</td>
-                <td>{statusBadge[l.status]}</td>
-                <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="score-bar"><div className="score-fill" style={{width:l.score+'%',background:scoreColor(l.score)}}></div></div><span style={{fontSize:11,fontWeight:600,fontFamily:'var(--font-mono)',color:scoreColor(l.score)}}>{l.score}</span></div></td>
-                <td>
-                  <div style={{display:'flex',gap:5}}>
-                    <button className="btn btn-ghost btn-sm" onClick={()=>setComposeLead(l)}>{tr.aiEmail}</button>
-                    <button className="btn btn-ghost btn-sm" onClick={()=>{setEditLead(l);setEditForm({name:l.name,email:l.email,phone:l.phone,car:l.car,status:l.status})}}>✏️</button>
-                    <button className="btn btn-red btn-sm" onClick={()=>deleteLead(l.id)}>🗑</button>
+            {!loading && filtered.map(lead => (
+              <tr key={lead.id} style={{borderBottom:'1px solid var(--border)',transition:'background .1s'}} onMouseEnter={e=>(e.currentTarget.style.background='var(--surface2)')} onMouseLeave={e=>(e.currentTarget.style.background='')}>
+                <td style={{padding:'10px 12px'}}><input type="checkbox" checked={selected.includes(lead.id)} onChange={e => setSelected(e.target.checked ? [...selected,lead.id] : selected.filter(id => id !== lead.id))}/></td>
+                <td style={{padding:'10px 12px'}}>
+                  <div style={{fontWeight:500,fontSize:12}}>{lead.name}</div>
+                  <div style={{fontSize:10,color:'var(--text3)'}}>{lead.email}</div>
+                </td>
+                <td style={{padding:'10px 12px',fontSize:12,color:'var(--text2)'}}>{lead.car || '—'}</td>
+                <td style={{padding:'10px 12px',fontSize:11,color:'var(--text3)'}}>{lead.days_since_contact ? `${lead.days_since_contact} ${tr.daysSince}` : '—'}</td>
+                <td style={{padding:'10px 12px',fontSize:11,color:'var(--text3)'}}>{lead.source || '—'}</td>
+                <td style={{padding:'10px 12px'}}>{statusPill(lead.status)}</td>
+                <td style={{padding:'10px 12px'}}>{scoreBar(lead.score || 0)}</td>
+                <td style={{padding:'10px 12px'}}>
+                  <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setComposeLead(lead)}>{tr.aiEmail}</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => loadEmailLogs(lead)} title="Se sendte emails">📬</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setEditLead(lead)}>✏️</button>
+                    <button className="btn btn-red btn-sm" onClick={() => deleteLead(lead.id)}>🗑</button>
                   </div>
                 </td>
               </tr>

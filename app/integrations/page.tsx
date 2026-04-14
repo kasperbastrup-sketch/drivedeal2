@@ -14,6 +14,7 @@ export default function Integrations() {
   const [gmailConnected, setGmailConnected] = useState(false)
   const [gmailEmail, setGmailEmail] = useState('')
   const [reportFrequency, setReportFrequency] = useState('weekly')
+  const [sendToSegments, setSendToSegments] = useState('all')
   const [notifyOnReply, setNotifyOnReply] = useState(true)
   const [notifyOnBooking, setNotifyOnBooking] = useState(true)
 
@@ -29,6 +30,7 @@ export default function Integrations() {
         setGmailConnected(data.gmail_connected ?? false)
         setGmailEmail(data.gmail_email || '')
         setReportFrequency(data.report_frequency || 'weekly')
+        setSendToSegments(data.send_to_segments || 'all')
       }
     }
     load()
@@ -54,6 +56,7 @@ export default function Integrations() {
       email_tracking: tracking,
       daily_limit: parseInt(dailyLimit),
       report_frequency: reportFrequency,
+      send_to_segments: sendToSegments,
     }).eq('id', user.id)
     show('💾', tr.saveSettings, '')
     setSaving(false)
@@ -210,3 +213,4 @@ export default function Integrations() {
     </div>
   )
 }
+// segment filter already in main file
