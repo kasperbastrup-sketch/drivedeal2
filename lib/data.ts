@@ -8,7 +8,7 @@ export interface Lead {
   car: string
   days?: number
   source: string
-  status: LeadStatus
+  status: string
   score: number
 }
 
