@@ -1,4 +1,5 @@
 'use client'
+import { readFileAsUTF8 } from '@/lib/readFileUTF8'
 import { useState } from 'react'
 import { useToast } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
@@ -6,8 +7,6 @@ import { useRefresh } from '@/components/AppShell'
 import { getBlacklistedEmails } from '@/lib/blacklist'
 import { calculateScore } from '@/lib/scoreLeads'
 import { useLang } from '@/lib/useLang'
-import { readFileAsUTF8 } from "@/lib/readFileUTF8"
-import { readFileAsUTF8 } from "@/lib/readFileUTF8"
 import { mapCSV } from '@/lib/csvMapper'
 
 export default function Import() {
