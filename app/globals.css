@@ -112,3 +112,6 @@ tbody tr:hover td{background:rgba(255,255,255,.017)}
 .toast-in{animation:slideIn .3s cubic-bezier(.34,1.56,.64,1) forwards}
 .divider{height:1px;background:var(--border);margin:16px 0}
 .label{font-size:11px;color:var(--text2);display:block;margin-bottom:6px;margin-top:14px;font-weight:500}
+.filter-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .15s;font-family:var(--font-body)}
+.filter-btn:hover{border-color:var(--border2);color:var(--text)}
+.filter-btn.active{background:var(--goldglow);border-color:rgba(201,169,110,.4);color:var(--gold);font-weight:600}
