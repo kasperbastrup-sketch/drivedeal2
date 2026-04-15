@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Lead } from '@/lib/data'
 import { useToast } from './Toast'
+import { supabase } from '@/lib/supabase'
 
 interface Props { lead: Lead | null; onClose: ()=>void; onSent?: (id:string)=>void }
 
@@ -35,11 +36,73 @@ export default function ComposeModal({ lead, onClose, onSent }: Props) {
     setLoading(false)
   }
 
-  function send() {
+  async function send() {
     if (!lead) return
-    onSent?.(lead.id)
-    onClose()
-    show('📤', `Email sendt til ${lead.name}`, subject)
+    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { show('❌', 'Ikke logget ind', ''); setLoading(false); return }
+
+      const { data: dealer } = await supabase.from('dealers').select('gmail_access_token, gmail_email, gmail_connected').eq('id', user.id).single()
+
+      if (!dealer?.gmail_connected || !dealer?.gmail_access_token) {
+        show('⚠️', 'Gmail ikke forbundet', 'Gå til Integrationer og forbind Gmail')
+        setLoading(false)
+        return
+      }
+
+      // Send via Gmail API
+      const emailContent = [
+        `From: ${dealer.gmail_email}`,
+        `To: ${lead.email}`,
+        `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
+        'Content-Type: text/plain; charset=utf-8',
+        'MIME-Version: 1.0',
+        '',
+        body,
+      ].join('\r\n')
+
+      const raw = btoa(unescape(encodeURIComponent(emailContent)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+
+      const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${dealer.gmail_access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ raw }),
+      })
+
+      if (!gmailRes.ok) {
+        const err = await gmailRes.json()
+        show('❌', 'Gmail fejl', err.error?.message || 'Kunne ikke sende')
+        setLoading(false)
+        return
+      }
+
+      // Log til email_logs
+      await supabase.from('email_logs').insert({
+        dealer_id: user.id,
+        lead_id: lead.id,
+        subject,
+        body,
+        status: 'sent',
+      })
+
+      // Opdater lead status
+      await supabase.from('leads').update({
+        status: 'sent',
+        last_contacted_at: new Date().toISOString(),
+      }).eq('id', lead.id)
+
+      onSent?.(lead.id)
+      onClose()
+      show('📤', `Email sendt til ${lead.name}`, subject)
+    } catch (err) {
+      show('❌', 'Fejl', 'Kunne ikke sende email')
+    }
+    setLoading(false)
   }
 
   if (!lead) return null
