@@ -5,7 +5,7 @@ import { useToast } from '@/components/Toast'
 import { useLang } from '@/lib/useLang'
 
 interface Step { day: string; name: string; desc: string }
-interface Sequence { id: string; name: string; status: string; steps: Step[]; created_at: string }
+interface Sequence { id: string; dealer_id: string; name: string; status: string; steps: Step[]; created_at: string }
 
 export default function Sequences() {
   const { show } = useToast()
