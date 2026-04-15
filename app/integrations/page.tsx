@@ -161,7 +161,7 @@ export default function Integrations() {
         {tr.crmItems.map(item=>(
           <div key={item.name} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
             <div><div style={{fontSize:13,fontWeight:500}}>{item.name}</div><div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>{item.desc}</div></div>
-            <button className="btn btn-ghost btn-sm" onClick={()=>connectCRM(item.name)}>{tr.connect}</button>
+            <span style={{fontSize:10,color:'var(--text3)',fontWeight:500,background:'var(--surface2)',padding:'3px 8px',borderRadius:6,border:'1px solid var(--border)'}}>Kommer snart</span>
           </div>
         ))}
       </div>

@@ -117,10 +117,12 @@ export default function Import() {
 
   const crmList = [
     { name: 'Gmail', desc: 'Forbundet og aktiv', done: true },
-    { name: 'Bilinfo', desc: 'Eksporter CSV fra Bilinfo og upload herover' },
-    { name: 'AutoDesktop', desc: 'Eksporter CSV fra AutoDesktop og upload herover' },
-    { name: 'HubSpot CRM', desc: tr.crmItems[0].desc },
-    { name: 'Salesforce', desc: tr.crmItems[1].desc },
+    { name: 'Bilinfo', desc: 'Eksporter CSV fra Bilinfo og upload herover', csv: true },
+    { name: 'AutoDesktop', desc: 'Eksporter CSV fra AutoDesktop og upload herover', csv: true },
+    { name: 'HubSpot CRM', desc: tr.crmItems[0].desc, soon: true },
+    { name: 'Salesforce', desc: tr.crmItems[1].desc, soon: true },
+    { name: 'Pipedrive', desc: tr.crmItems[2].desc, soon: true },
+    { name: 'AutoIt / CDK', desc: tr.crmItems[3].desc, soon: true },
   ]
 
   return (
@@ -185,9 +187,9 @@ export default function Import() {
               </div>
               {item.done
                 ? <span className="pill pill-green">{tr.connected}</span>
-                : item.name === 'Bilinfo' || item.name === 'AutoDesktop'
-                  ? <span style={{fontSize:10,color:'var(--gold)',fontWeight:500}}>Via CSV</span>
-                  : <button className="btn btn-ghost btn-sm" onClick={()=>connectCRM(item.name)}>{tr.connect}</button>
+                : (item as any).csv
+                  ? <span style={{fontSize:10,color:'var(--gold)',fontWeight:500}}>Via CSV ↑</span>
+                  : <span style={{fontSize:10,color:'var(--text3)',fontWeight:500,background:'var(--surface2)',padding:'3px 8px',borderRadius:6,border:'1px solid var(--border)'}}>Kommer snart</span>
               }
             </div>
           ))}
