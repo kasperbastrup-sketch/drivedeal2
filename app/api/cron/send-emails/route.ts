@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
 
     for (const dealer of dealers) {
       try {
+        // Refresh token
         let accessToken = dealer.gmail_access_token
         if (dealer.gmail_refresh_token) {
           const newToken = await refreshGmailToken(dealer.gmail_refresh_token)
@@ -38,35 +39,109 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        const segments = dealer.send_to_segments || 'all'
-        const statusFilter = segments === 'cold' ? ['cold'] : segments === 'warm' ? ['warm'] : ['cold', 'warm']
+        const dealerWithToken = { ...dealer, gmail_access_token: accessToken }
 
-        const today = new Date().toISOString().split('T')[0]
-        const { data: leads } = await supabase
-          .from('leads')
+        // 1. Håndter aktive sekvenser
+        const { data: activeSequences } = await supabase
+          .from('sequences')
           .select('*')
           .eq('dealer_id', dealer.id)
-          .in('status', statusFilter)
-          .or(`last_contacted_at.is.null,last_contacted_at.lt.${today}`)
-          .order('score', { ascending: false })
-          .limit(dealer.daily_limit || 100)
+          .eq('status', 'active')
 
-        if (!leads || leads.length === 0) continue
+        if (activeSequences && activeSequences.length > 0) {
+          for (const seq of activeSequences) {
+            const steps = seq.steps || []
 
-        for (let i = 0; i < leads.length; i++) {
-          const lead = leads[i]
+            // Find leads der er i denne sekvens og skal have næste email
+            const { data: seqLeads } = await supabase
+              .from('leads')
+              .select('*')
+              .eq('dealer_id', dealer.id)
+              .eq('sequence_id', seq.id)
+              .not('status', 'eq', 'booked')
+              .not('status', 'eq', 'replied')
 
-          if (dealer.antispam) {
-            const delay = Math.floor(Math.random() * 60 + 30) * 1000
-            await new Promise(resolve => setTimeout(resolve, Math.min(delay, 5000)))
+            for (const lead of (seqLeads || [])) {
+              const currentStep = lead.sequence_step || 0
+              const nextStep = currentStep + 1
+
+              if (nextStep >= steps.length) continue // Sekvens færdig
+
+              // Beregn hvornår næste email skal sendes
+              const nextStepData = steps[nextStep]
+              const dayDelay = parseInt(nextStepData.day?.replace(/[^0-9]/g, '') || '7')
+              const startedAt = new Date(lead.sequence_started_at || lead.created_at)
+              const daysSinceStart = Math.floor((Date.now() - startedAt.getTime()) / (1000 * 60 * 60 * 24))
+
+              if (daysSinceStart >= dayDelay) {
+                try {
+                  await sendSequenceEmail(dealerWithToken, lead, seq, nextStep, steps[nextStep])
+                  totalSent++
+                } catch (err) {
+                  console.error(`Sequence email failed for ${lead.email}:`, err)
+                  totalFailed++
+                }
+
+                if (dealer.antispam) {
+                  await new Promise(r => setTimeout(r, Math.floor(Math.random() * 60 + 30) * 1000))
+                }
+              }
+            }
+
+            // Find leads der ikke er i en sekvens endnu — start dem på sekvensen
+            const segments = dealer.send_to_segments || 'all'
+            const statusFilter = segments === 'cold' ? ['cold'] : segments === 'warm' ? ['warm'] : ['cold', 'warm']
+
+            const { data: newLeads } = await supabase
+              .from('leads')
+              .select('*')
+              .eq('dealer_id', dealer.id)
+              .in('status', statusFilter)
+              .is('sequence_id', null)
+              .order('score', { ascending: false })
+              .limit(dealer.daily_limit || 100)
+
+            for (const lead of (newLeads || [])) {
+              if (steps.length === 0) continue
+              try {
+                await sendSequenceEmail(dealerWithToken, lead, seq, 0, steps[0])
+                totalSent++
+              } catch (err) {
+                console.error(`Sequence start failed for ${lead.email}:`, err)
+                totalFailed++
+              }
+
+              if (dealer.antispam) {
+                await new Promise(r => setTimeout(r, Math.floor(Math.random() * 60 + 30) * 1000))
+              }
+            }
           }
+        } else {
+          // Ingen aktive sekvenser — send standard daglig email
+          const segments = dealer.send_to_segments || 'all'
+          const statusFilter = segments === 'cold' ? ['cold'] : segments === 'warm' ? ['warm'] : ['cold', 'warm']
+          const today = new Date().toISOString().split('T')[0]
 
-          try {
-            await sendEmail({ ...dealer, gmail_access_token: accessToken }, lead)
-            totalSent++
-          } catch (err) {
-            console.error(`Failed to send to ${lead.email}:`, err)
-            totalFailed++
+          const { data: leads } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('dealer_id', dealer.id)
+            .in('status', statusFilter)
+            .or(`last_contacted_at.is.null,last_contacted_at.lt.${today}`)
+            .order('score', { ascending: false })
+            .limit(dealer.daily_limit || 100)
+
+          for (const lead of (leads || [])) {
+            if (dealer.antispam) {
+              await new Promise(r => setTimeout(r, Math.floor(Math.random() * 60 + 30) * 1000))
+            }
+            try {
+              await sendStandardEmail(dealerWithToken, lead)
+              totalSent++
+            } catch (err) {
+              console.error(`Standard email failed for ${lead.email}:`, err)
+              totalFailed++
+            }
           }
         }
 
@@ -84,35 +159,40 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function sendEmail(dealer: Record<string, string>, lead: Record<string, string>) {
-  const isWarm = lead.status === 'warm'
-  const daysNum = parseInt(lead.days_since_contact) || 0
+async function sendSequenceEmail(
+  dealer: Record<string, string>,
+  lead: Record<string, string>,
+  sequence: Record<string, any>,
+  stepIndex: number,
+  stepData: Record<string, string>
+) {
   const senderName = dealer.sender_name || dealer.name || 'dit team'
   const dealerName = dealer.dealer_name || ''
   const leadName = lead.name ? lead.name.split(' ')[0] : 'dig'
   const language = dealer.ai_language || 'dansk'
   const tone = dealer.ai_tone || 'warm'
+  const isFirst = stepIndex === 0
+  const isLast = stepIndex === (sequence.steps?.length || 1) - 1
 
-  const toneDesc = tone === 'professional'
-    ? 'professionel og høflig'
-    : tone === 'direct'
-    ? 'direkte og venlig'
-    : 'varm og personlig'
+  const toneDesc = tone === 'professional' ? 'professionel og høflig' : tone === 'direct' ? 'direkte og venlig' : 'varm og personlig'
+
+  const contextDesc = isFirst
+    ? `Dette er den første kontakt i sekvensen "${sequence.name}". Åbn samtalen naturligt.`
+    : isLast
+    ? `Dette er den sidste email i sekvensen. Skriv en afrunding der lader døren stå åben uden pres.`
+    : `Dette er opfølgning nr. ${stepIndex + 1} i sekvensen. Leadet har ikke svaret endnu. Vær kort og naturlig.`
 
   const prompt = `Du er en bilsælger ved ${dealerName}. Skriv en kort, naturlig og ${toneDesc} email på ${language} til ${leadName}.
 
 Regler du SKAL følge:
 - Emailen må IKKE nævne specifikke biler som tilgængelige, priser eller tilbud
 - Emailen må IKKE opfordre til prøvekørsel eller booking
-- Emailen skal blot åbne en samtale og vise at du husker personen
+- Emailen skal åbne eller holde en samtale i gang på en naturlig måde
 - Max 4 korte sætninger
 - Lyd som et menneske, ikke en robot
-- Afslut med dit navn: ${senderName}${dealerName ? `, ${dealerName}` : ''}
+- Afslut med: ${senderName}${dealerName ? `, ${dealerName}` : ''}
 
-${isWarm
-  ? `Dette lead viste interesse for nylig. Skriv en venlig check-in der spørger om de stadig overvejer en ny bil.`
-  : `Dette lead har ikke hørt fra os i ${daysNum} dage. Skriv en naturlig genoptagelse af kontakten uden at nævne hvor lang tid der er gået.`
-}
+${contextDesc}
 
 Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: https://drivedeal.live/unsubscribe?email=${lead.email}&dealer=${dealer.id}"`
 
@@ -132,7 +212,92 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
 
   const aiData = await aiRes.json()
   const emailBody = aiData.content?.[0]?.text || ''
+  if (!emailBody) throw new Error('AI generated empty email')
 
+  const subjectOptions = [
+    `Hej ${leadName} — er du stadig på udkig?`,
+    `Hej ${leadName} — jeg tænkte på dig`,
+    `Hej ${leadName} — bare en hurtig hilsen`,
+  ]
+  const subject = subjectOptions[stepIndex % subjectOptions.length]
+
+  const rawEmail = createRawEmail(dealer.gmail_email, lead.email, subject, emailBody)
+
+  const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${dealer.gmail_access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ raw: rawEmail }),
+  })
+
+  if (!gmailRes.ok) {
+    const err = await gmailRes.json()
+    throw new Error(err.error?.message || 'Gmail send failed')
+  }
+
+  // Opdater lead — sæt sequence_id, step og last_contacted_at
+  await supabase.from('leads').update({
+    status: 'sent',
+    last_contacted_at: new Date().toISOString(),
+    sequence_id: sequence.id,
+    sequence_step: stepIndex,
+    sequence_started_at: stepIndex === 0 ? new Date().toISOString() : lead.sequence_started_at,
+  }).eq('id', lead.id)
+
+  await supabase.from('email_logs').insert({
+    dealer_id: dealer.id,
+    lead_id: lead.id,
+    subject,
+    body: emailBody,
+    status: 'sent',
+  })
+}
+
+async function sendStandardEmail(dealer: Record<string, string>, lead: Record<string, string>) {
+  const isWarm = lead.status === 'warm'
+  const daysNum = parseInt(lead.days_since_contact) || 0
+  const senderName = dealer.sender_name || dealer.name || 'dit team'
+  const dealerName = dealer.dealer_name || ''
+  const leadName = lead.name ? lead.name.split(' ')[0] : 'dig'
+  const language = dealer.ai_language || 'dansk'
+  const tone = dealer.ai_tone || 'warm'
+  const toneDesc = tone === 'professional' ? 'professionel og høflig' : tone === 'direct' ? 'direkte og venlig' : 'varm og personlig'
+
+  const prompt = `Du er en bilsælger ved ${dealerName}. Skriv en kort, naturlig og ${toneDesc} email på ${language} til ${leadName}.
+
+Regler du SKAL følge:
+- Emailen må IKKE nævne specifikke biler som tilgængelige, priser eller tilbud
+- Emailen må IKKE opfordre til prøvekørsel eller booking
+- Emailen skal blot åbne en samtale og vise at du husker personen
+- Max 4 korte sætninger
+- Lyd som et menneske, ikke en robot
+- Afslut med: ${senderName}${dealerName ? `, ${dealerName}` : ''}
+
+${isWarm
+    ? 'Dette lead viste interesse for nylig. Skriv en venlig check-in der spørger om de stadig overvejer en ny bil.'
+    : `Dette lead har ikke hørt fra os i ${daysNum} dage. Skriv en naturlig genoptagelse af kontakten.`
+  }
+
+Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: https://drivedeal.live/unsubscribe?email=${lead.email}&dealer=${dealer.id}"`
+
+  const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 400,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  const aiData = await aiRes.json()
+  const emailBody = aiData.content?.[0]?.text || ''
   if (!emailBody) throw new Error('AI generated empty email')
 
   const subject = isWarm
