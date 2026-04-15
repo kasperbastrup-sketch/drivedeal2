@@ -8,7 +8,7 @@ const supabase = createClient(
 )
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
+  const authHeader = req.headers.get("authorization") || `Bearer ${new URL(req.url).searchParams.get("secret")}`
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized", got: authHeader, env: process.env.CRON_SECRET }, { status: 401 })
   }
