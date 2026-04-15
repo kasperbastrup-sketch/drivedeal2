@@ -282,8 +282,8 @@ Regler du SKAL følge:
 - Afslut med: ${senderName}${dealerName ? `, ${dealerName}` : ''}
 
 ${isWarm
-    ? 'Dette lead viste interesse for nylig. Skriv en venlig check-in der spørger om de stadig overvejer en ny bil.'
-    : `Dette lead har ikke hørt fra os i ${daysNum} dage. Skriv en naturlig genoptagelse af kontakten.`
+    ? 'Dette lead har vist interesse for en bil. Skriv en venlig og neutral email der spørger om de stadig er på udkig. Nævn IKKE tidligere samtaler eller møder — hold det åbent og naturligt.'
+    : 'Skriv en kort og neutral email der åbner en samtale. Nævn IKKE tidligere samtaler, møder eller kontakt. Skriv som om du bare vil høre om de stadig overvejer en ny bil.'
   }
 
 Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: https://drivedeal.live/unsubscribe?email=${lead.email}&dealer=${dealer.id}"`

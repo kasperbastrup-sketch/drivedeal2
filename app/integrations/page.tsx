@@ -14,6 +14,7 @@ export default function Integrations() {
   const [gmailConnected, setGmailConnected] = useState(false)
   const [gmailEmail, setGmailEmail] = useState('')
   const [reportFrequency, setReportFrequency] = useState('weekly')
+  const [monthlyReport, setMonthlyReport] = useState(true)
   const [sendToSegments, setSendToSegments] = useState('all')
   const [notifyOnReply, setNotifyOnReply] = useState(true)
   const [notifyOnBooking, setNotifyOnBooking] = useState(true)
@@ -30,6 +31,7 @@ export default function Integrations() {
         setGmailConnected(data.gmail_connected ?? false)
         setGmailEmail(data.gmail_email || '')
         setReportFrequency(data.report_frequency || 'weekly')
+        setMonthlyReport(data.monthly_report_enabled ?? true)
         setSendToSegments(data.send_to_segments || 'all')
       }
     }
@@ -56,6 +58,7 @@ export default function Integrations() {
       email_tracking: tracking,
       daily_limit: parseInt(dailyLimit),
       report_frequency: reportFrequency,
+      monthly_report_enabled: monthlyReport,
       send_to_segments: sendToSegments,
     }).eq('id', user.id)
     show('💾', tr.saveSettings, '')
@@ -206,16 +209,15 @@ export default function Integrations() {
             <option value="warm">Kun varme leads</option>
           </select>
         </div>
-        {/* Rapport frekvens */}
+        {/* Månedlig rapport */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 0',borderBottom:'1px solid var(--border)'}}>
           <div>
-            <div style={{fontSize:13,fontWeight:500}}>Rapport frekvens</div>
-            <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Hvor tit vil du modtage resultatrapport</div>
+            <div style={{fontSize:13,fontWeight:500}}>Månedlig rapport</div>
+            <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>
+              {monthlyReport ? 'Slået til — du modtager en rapport den 1. i hver måned kl. 08:00' : 'Slået fra — du modtager ingen automatisk rapport'}
+            </div>
           </div>
-          <select className="field-select" value={reportFrequency} onChange={e=>setReportFrequency(e.target.value)}>
-            <option value="weekly">Ugentlig (hver mandag)</option>
-            <option value="monthly">Månedlig (første dag i måneden)</option>
-          </select>
+          <button className={`toggle ${monthlyReport?'on':'off'}`} onClick={()=>setMonthlyReport(p=>!p)}></button>
         </div>
 
         <button className="btn btn-gold" style={{marginTop:14,width:'100%',justifyContent:'center'}} onClick={save} disabled={saving}>

@@ -33,11 +33,10 @@ export async function GET(req: NextRequest) {
 
     for (const dealer of dealers) {
       try {
-        // Tjek om rapporten skal sendes i dag
-        const isWeekly = dealer.report_frequency === 'weekly' && dayOfWeek === 1
-        const isMonthly = dealer.report_frequency === 'monthly' && dayOfMonth === 1
+        // Tjek om månedlig rapport er slået til og det er den 1. i måneden
+        const isMonthly = dealer.monthly_report_enabled && dayOfMonth === 1
 
-        if (!isWeekly && !isMonthly) continue
+        if (!isMonthly) continue
 
         // Refresh token
         let accessToken = dealer.gmail_access_token
