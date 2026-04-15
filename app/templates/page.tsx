@@ -4,14 +4,28 @@ import { useToast } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
 import { useLang } from '@/lib/useLang'
 
+interface Template {
+  key: string
+  name: string
+  icon: string
+  rate: string
+  subject: string
+  body: string
+  custom?: boolean
+}
+
 export default function Templates() {
   const [selected, setSelected] = useState('proeve')
-  const [templates, setTemplates] = useState<Record<string,{subject:string;body:string}>>({})
+  const [templates, setTemplates] = useState<Template[]>([])
   const [saving, setSaving] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newSubject, setNewSubject] = useState('')
+  const [newBody, setNewBody] = useState('')
   const { show } = useToast()
   const { tr } = useLang()
 
-  const defaultTemplates = [
+  const defaultTemplates: Template[] = [
     {key:'proeve',icon:'🚗',name:tr.tpl1Name,rate:tr.tpl1Rate,
      subject:'{{fornavn}}, din {{bil}} venter på dig 🚗',
      body:`Hej {{fornavn}},\n\nDet er nu {{dage_siden}} dage siden du kiggede på en {{bil}} hos os, og jeg ville høre om du stadig overvejer det?\n\nVi har faktisk en rigtig flot {{bil}} klar til prøvekørsel denne uge — helt uforpligtende.\n\nHar du 20 minutter til en prøvetur?\n\nMed venlig hilsen,\n{{afsender}}\n{{forhandler}}`},
@@ -35,14 +49,29 @@ export default function Templates() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const { data } = await supabase.from('templates').select('*').eq('dealer_id', user.id)
+
     if (data && data.length > 0) {
-      const map: Record<string,{subject:string;body:string}> = {}
-      data.forEach(t => { map[t.key] = { subject: t.subject || '', body: t.body || '' } })
-      setTemplates(map)
+      const savedKeys = new Set(data.map((t:any) => t.key))
+      const customTemplates: Template[] = data
+        .filter((t:any) => !defaultTemplates.find(d => d.key === t.key))
+        .map((t:any) => ({
+          key: t.key,
+          icon: '📝',
+          name: t.name,
+          rate: 'Tilpasset skabelon',
+          subject: t.subject || '',
+          body: t.body || '',
+          custom: true,
+        }))
+
+      const merged = defaultTemplates.map(d => {
+        const saved = data.find((t:any) => t.key === d.key)
+        return saved ? { ...d, subject: saved.subject, body: saved.body } : d
+      })
+
+      setTemplates([...merged, ...customTemplates])
     } else {
-      const map: Record<string,{subject:string;body:string}> = {}
-      defaultTemplates.forEach(t => { map[t.key] = { subject: t.subject, body: t.body } })
-      setTemplates(map)
+      setTemplates(defaultTemplates)
     }
   }
 
@@ -50,57 +79,158 @@ export default function Templates() {
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
-    const tpl = defaultTemplates.find(t => t.key === selected)
-    const current = templates[selected]
+    const tpl = templates.find(t => t.key === selected)
+    if (!tpl) { setSaving(false); return }
+
     const { error } = await supabase.from('templates').upsert({
-      dealer_id: user.id, key: selected, name: tpl?.name || selected,
-      subject: current?.subject || '', body: current?.body || '',
+      dealer_id: user.id,
+      key: selected,
+      name: tpl.name,
+      subject: tpl.subject,
+      body: tpl.body,
     }, { onConflict: 'dealer_id,key' })
+
     if (error) { show('❌', 'Fejl', error.message); setSaving(false); return }
     show('💾', tr.saveTemplate, '')
     setSaving(false)
   }
 
-  const current = templates[selected] || { subject: '', body: '' }
-  const selectedTpl = defaultTemplates.find(t => t.key === selected)
+  async function createCustomTemplate() {
+    if (!newName.trim()) { show('⚠️', 'Skriv et navn', ''); return }
+    if (!newSubject.trim()) { show('⚠️', 'Skriv en emne-linje', ''); return }
+    if (!newBody.trim()) { show('⚠️', 'Skriv email tekst', ''); return }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const key = `custom_${Date.now()}`
+    const { error } = await supabase.from('templates').insert({
+      dealer_id: user.id,
+      key,
+      name: newName,
+      subject: newSubject,
+      body: newBody,
+    })
+
+    if (error) { show('❌', 'Fejl', error.message); return }
+
+    const newTpl: Template = {
+      key, icon: '📝', name: newName,
+      rate: 'Tilpasset skabelon',
+      subject: newSubject, body: newBody, custom: true,
+    }
+
+    setTemplates(prev => [...prev, newTpl])
+    setSelected(key)
+    setShowNew(false)
+    setNewName('')
+    setNewSubject('')
+    setNewBody('')
+    show('✅', `"${newName}" oprettet`, '')
+  }
+
+  async function deleteCustomTemplate(key: string) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('templates').delete().eq('dealer_id', user.id).eq('key', key)
+    setTemplates(prev => prev.filter(t => t.key !== key))
+    setSelected('proeve')
+    show('🗑️', 'Slettet', '')
+  }
+
+  const currentTpl = templates.find(t => t.key === selected)
 
   return (
     <div>
+      {/* NY SKABELON MODAL */}
+      {showNew && (
+        <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowNew(false)}}>
+          <div className="modal" style={{maxWidth:560}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+              <div className="font-head" style={{fontSize:17,fontWeight:700}}>Ny skabelon</div>
+              <button onClick={()=>setShowNew(false)} style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text2)',cursor:'pointer',borderRadius:6,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>✕</button>
+            </div>
+
+            <div className="label" style={{marginTop:0}}>Navn på skabelon</div>
+            <input className="field-input" value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Fx: Min BMW kampagne" style={{width:'100%'}}/>
+
+            <div className="label">Emne-linje</div>
+            <input className="field-input" value={newSubject} onChange={e=>setNewSubject(e.target.value)} placeholder="Fx: Hej {{fornavn}}, vi har noget til dig" style={{width:'100%'}}/>
+
+            <div className="label">Email tekst</div>
+            <textarea className="field-textarea" value={newBody} onChange={e=>setNewBody(e.target.value)} placeholder="Skriv din email her..." style={{minHeight:200,width:'100%'}}/>
+
+            <div style={{marginTop:8,fontSize:11,color:'var(--text2)'}}>
+              Variabler: {['{{fornavn}}','{{bil}}','{{dage_siden}}','{{afsender}}','{{forhandler}}'].map(v=>(
+                <code key={v} style={{fontFamily:'var(--font-mono)',fontSize:10,background:'var(--surface2)',padding:'1px 5px',borderRadius:3,marginRight:4}}>{v}</code>
+              ))}
+            </div>
+
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8,paddingTop:16,marginTop:12,borderTop:'1px solid var(--border)'}}>
+              <button className="btn btn-ghost" onClick={()=>setShowNew(false)}>Annuller</button>
+              <button className="btn btn-gold" onClick={createCustomTemplate}>Opret skabelon</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div className="font-head" style={{fontSize:14,fontWeight:700}}>{tr.emailTemplates}</div>
+        <button className="btn btn-gold" onClick={()=>setShowNew(true)}>+ Ny skabelon</button>
       </div>
+
       <div style={{display:'grid',gridTemplateColumns:'1fr 1.5fr',gap:14}}>
         <div className="panel">
           <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:14}}>{tr.selectTemplate}</div>
-          {defaultTemplates.map(t=>(
+          {templates.map(t=>(
             <div key={t.key} className={`template-card${selected===t.key?' selected':''}`} onClick={()=>setSelected(t.key)}>
-              <div style={{fontWeight:600,fontSize:12,marginBottom:3}}>{t.icon} {t.name}</div>
-              <div style={{fontSize:10,color:'var(--green)',marginTop:4}}>{t.rate}</div>
-              {templates[t.key] && <div style={{fontSize:10,color:'var(--gold)',marginTop:3}}>{tr.customizedAndSaved}</div>}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div style={{fontWeight:600,fontSize:12,marginBottom:3}}>{t.icon} {t.name}</div>
+                {t.custom && (
+                  <button onClick={e=>{e.stopPropagation();deleteCustomTemplate(t.key)}} style={{background:'none',border:'none',color:'var(--text3)',cursor:'pointer',fontSize:12,padding:'0 4px'}}>🗑</button>
+                )}
+              </div>
+              <div style={{fontSize:10,color:t.custom?'var(--gold)':'var(--green)',marginTop:4}}>{t.rate}</div>
             </div>
           ))}
         </div>
 
         <div className="panel">
-          <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:4}}>{selectedTpl?.icon} {selectedTpl?.name}</div>
-          <div style={{fontSize:11,color:'var(--text2)',marginBottom:14}}>{selectedTpl?.rate}</div>
-          <div className="label" style={{marginTop:0}}>{tr.subjectLine}</div>
-          <input className="field-input" value={current.subject} onChange={e=>setTemplates(prev=>({...prev,[selected]:{...prev[selected],subject:e.target.value}}))} style={{width:'100%'}}/>
-          <div className="label">{tr.emailText}</div>
-          <textarea className="field-textarea" value={current.body} onChange={e=>setTemplates(prev=>({...prev,[selected]:{...prev[selected],body:e.target.value}}))} style={{minHeight:260}}/>
-          <div style={{marginTop:8,fontSize:11,color:'var(--text2)'}}>
-            {tr.variables}: {['{{fornavn}}','{{bil}}','{{dage_siden}}','{{afsender}}','{{forhandler}}'].map(v=>(
-              <code key={v} style={{fontFamily:'var(--font-mono)',fontSize:10,background:'var(--surface2)',padding:'1px 5px',borderRadius:3,marginRight:4}}>{v}</code>
-            ))}
-          </div>
-          <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}>
-            <button className="btn btn-ghost" onClick={()=>{
-              const def = defaultTemplates.find(t=>t.key===selected)
-              if(def) setTemplates(prev=>({...prev,[selected]:{subject:def.subject,body:def.body}}))
-              show('↩️', tr.reset, '')
-            }}>{tr.reset}</button>
-            <button className="btn btn-gold" onClick={saveTemplate} disabled={saving}>{saving?tr.saving:tr.saveTemplate}</button>
-          </div>
+          {currentTpl && (
+            <>
+              <div className="font-head" style={{fontSize:13,fontWeight:600,marginBottom:4}}>{currentTpl.icon} {currentTpl.name}</div>
+              <div style={{fontSize:11,color:'var(--text2)',marginBottom:14}}>{currentTpl.rate}</div>
+
+              <div className="label" style={{marginTop:0}}>{tr.subjectLine}</div>
+              <input className="field-input" value={currentTpl.subject}
+                onChange={e=>setTemplates(prev=>prev.map(t=>t.key===selected?{...t,subject:e.target.value}:t))}
+                style={{width:'100%'}}/>
+
+              <div className="label">{tr.emailText}</div>
+              <textarea className="field-textarea" value={currentTpl.body}
+                onChange={e=>setTemplates(prev=>prev.map(t=>t.key===selected?{...t,body:e.target.value}:t))}
+                style={{minHeight:260}}/>
+
+              <div style={{marginTop:8,fontSize:11,color:'var(--text2)'}}>
+                {tr.variables}: {['{{fornavn}}','{{bil}}','{{dage_siden}}','{{afsender}}','{{forhandler}}'].map(v=>(
+                  <code key={v} style={{fontFamily:'var(--font-mono)',fontSize:10,background:'var(--surface2)',padding:'1px 5px',borderRadius:3,marginRight:4}}>{v}</code>
+                ))}
+              </div>
+
+              <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}>
+                {!currentTpl.custom && (
+                  <button className="btn btn-ghost" onClick={()=>{
+                    const def = defaultTemplates.find(t=>t.key===selected)
+                    if (def) setTemplates(prev=>prev.map(t=>t.key===selected?{...t,subject:def.subject,body:def.body}:t))
+                    show('↩️', tr.reset, '')
+                  }}>{tr.reset}</button>
+                )}
+                <button className="btn btn-gold" onClick={saveTemplate} disabled={saving}>
+                  {saving?tr.saving:tr.saveTemplate}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
