@@ -4,7 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppShell from './AppShell'
 
-const publicPaths = ['/login', '/signup', '/reset-password', '/update-password', '/home', '/privacy', '/terms']
+const publicPaths = ['/login', '/signup', '/reset-password', '/update-password', '/home', '/privacy', '/terms', '/api/cron', '/api/auth', '/unsubscribe']
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<'checking'|'public'|'authed'>('checking')
