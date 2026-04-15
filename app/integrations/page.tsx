@@ -23,7 +23,7 @@ export default function Integrations() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('dealers').select('antispam, email_tracking, daily_limit, gmail_connected, gmail_email, report_frequency, send_to_segments').eq('id', user.id).single()
+      const { data } = await supabase.from('dealers').select('antispam, email_tracking, daily_limit, gmail_connected, gmail_email, report_frequency, send_to_segments, monthly_report_enabled').eq('id', user.id).single()
       if (data) {
         setAntispam(data.antispam ?? true)
         setTracking(data.email_tracking ?? true)
