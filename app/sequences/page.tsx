@@ -71,6 +71,13 @@ export default function Sequences() {
 
   async function toggleStatus(seq: Sequence) {
     const newStatus = seq.status === 'active' ? 'inactive' : 'active'
+
+    // Hvis vi aktiverer — deaktiver alle andre sekvenser først
+    if (newStatus === 'active') {
+      await supabase.from('sequences').update({ status: 'inactive' }).eq('dealer_id', seq.dealer_id).neq('id', seq.id)
+      setSequences(prev => prev.map(s => s.id !== seq.id ? { ...s, status: 'inactive' } : s))
+    }
+
     await supabase.from('sequences').update({ status: newStatus }).eq('id', seq.id)
     setSequences(prev => prev.map(s => s.id === seq.id ? { ...s, status: newStatus } : s))
     show(newStatus === 'active' ? '▶' : '⏸', newStatus === 'active' ? tr.active : tr.inactive, '')
@@ -213,9 +220,13 @@ export default function Sequences() {
         </div>
       )}
 
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
         <div className="font-head" style={{fontSize:14,fontWeight:700}}>{tr.emailSequences}</div>
         <button className="btn btn-gold" onClick={()=>setShowNew(true)}>{tr.newSequence}</button>
+      </div>
+      <div style={{background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.2)',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:11,color:'var(--text2)',display:'flex',alignItems:'center',gap:8}}>
+        <span>⚡</span>
+        <span>Kun én sekvens kan være aktiv ad gangen. Leads tildeles automatisk den aktive sekvens og kontaktes maksimalt én gang per dag.</span>
       </div>
 
       {loading && <div style={{textAlign:'center',padding:40,color:'var(--text3)'}}>...</div>}

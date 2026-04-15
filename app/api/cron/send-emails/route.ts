@@ -61,7 +61,11 @@ export async function GET(req: NextRequest) {
               .not('status', 'eq', 'booked')
               .not('status', 'eq', 'replied')
 
+            const todayDate = new Date().toISOString().split('T')[0]
             for (const lead of (seqLeads || [])) {
+              // Spring over hvis leadet allerede er kontaktet i dag
+              if (lead.last_contacted_at && lead.last_contacted_at.startsWith(todayDate)) continue
+
               const currentStep = lead.sequence_step || 0
               const nextStep = currentStep + 1
 
@@ -91,6 +95,7 @@ export async function GET(req: NextRequest) {
             // Find leads der ikke er i en sekvens endnu — start dem på sekvensen
             const segments = dealer.send_to_segments || 'all'
             const statusFilter = segments === 'cold' ? ['cold'] : segments === 'warm' ? ['warm'] : ['cold', 'warm']
+            const todayStr = new Date().toISOString().split('T')[0]
 
             const { data: newLeads } = await supabase
               .from('leads')
@@ -98,6 +103,7 @@ export async function GET(req: NextRequest) {
               .eq('dealer_id', dealer.id)
               .in('status', statusFilter)
               .is('sequence_id', null)
+              .or(`last_contacted_at.is.null,last_contacted_at.lt.${todayStr}`)
               .order('score', { ascending: false })
               .limit(dealer.daily_limit || 100)
 
