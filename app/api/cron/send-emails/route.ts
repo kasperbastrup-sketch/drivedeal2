@@ -227,7 +227,20 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
   ]
   const subject = subjectOptions[stepIndex % subjectOptions.length]
 
-  const rawEmail = createRawEmail(dealer.gmail_email, lead.email, subject, emailBody)
+  // Opret email log først så vi har ID til tracking pixel
+  const { data: logEntry } = await supabase.from('email_logs').insert({
+    dealer_id: dealer.id,
+    lead_id: lead.id,
+    subject,
+    body: emailBody,
+    status: 'sent',
+  }).select().single()
+
+  // Tilføj tracking pixel til email body
+  const trackingPixel = logEntry ? `\n\n<img src="https://drivedeal.live/api/track/open?id=${logEntry.id}" width="1" height="1" style="display:none"/>` : ''
+  const emailBodyWithTracking = emailBody + trackingPixel
+
+  const rawEmail = createRawEmail(dealer.gmail_email, lead.email, subject, emailBodyWithTracking)
 
   const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
@@ -243,7 +256,7 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
     throw new Error(err.error?.message || 'Gmail send failed')
   }
 
-  // Opdater lead — sæt sequence_id, step og last_contacted_at
+  // Opdater lead
   await supabase.from('leads').update({
     status: 'sent',
     last_contacted_at: new Date().toISOString(),
@@ -251,14 +264,6 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
     sequence_step: stepIndex,
     sequence_started_at: stepIndex === 0 ? new Date().toISOString() : lead.sequence_started_at,
   }).eq('id', lead.id)
-
-  await supabase.from('email_logs').insert({
-    dealer_id: dealer.id,
-    lead_id: lead.id,
-    subject,
-    body: emailBody,
-    status: 'sent',
-  })
 }
 
 async function sendStandardEmail(dealer: Record<string, string>, lead: Record<string, string>) {
@@ -310,7 +315,19 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
     ? `Hej ${leadName} — er du stadig på udkig?`
     : `Hej ${leadName} — jeg tænkte på dig`
 
-  const rawEmail = createRawEmail(dealer.gmail_email, lead.email, subject, emailBody)
+  // Opret email log først så vi har ID til tracking pixel
+  const { data: logEntry } = await supabase.from('email_logs').insert({
+    dealer_id: dealer.id,
+    lead_id: lead.id,
+    subject,
+    body: emailBody,
+    status: 'sent',
+  }).select().single()
+
+  const trackingPixel = logEntry ? `\n\n<img src="https://drivedeal.live/api/track/open?id=${logEntry.id}" width="1" height="1" style="display:none"/>` : ''
+  const emailBodyWithTracking = emailBody + trackingPixel
+
+  const rawEmail = createRawEmail(dealer.gmail_email, lead.email, subject, emailBodyWithTracking)
 
   const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
@@ -330,14 +347,6 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
     status: 'sent',
     last_contacted_at: new Date().toISOString(),
   }).eq('id', lead.id)
-
-  await supabase.from('email_logs').insert({
-    dealer_id: dealer.id,
-    lead_id: lead.id,
-    subject,
-    body: emailBody,
-    status: 'sent',
-  })
 }
 
 function createRawEmail(from: string, to: string, subject: string, body: string): string {
