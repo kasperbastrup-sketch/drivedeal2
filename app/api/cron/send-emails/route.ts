@@ -183,19 +183,29 @@ async function sendSequenceEmail(
   const toneDesc = tone === 'professional' ? 'professionel og høflig' : tone === 'direct' ? 'direkte og venlig' : 'varm og personlig'
 
   const contextDesc = isFirst
-    ? `Dette er den første kontakt i sekvensen "${sequence.name}". Åbn samtalen naturligt.`
+    ? `Dette er den første kontakt. Åbn samtalen naturligt uden at nævne tidligere kontakt.`
     : isLast
-    ? `Dette er den sidste email i sekvensen. Skriv en afrunding der lader døren stå åben uden pres.`
-    : `Dette er opfølgning nr. ${stepIndex + 1} i sekvensen. Leadet har ikke svaret endnu. Vær kort og naturlig.`
+    ? `Dette er den sidste email. Skriv en afrunding der lader døren stå åben uden pres.`
+    : `Dette er opfølgning nr. ${stepIndex + 1}. Leadet har ikke svaret endnu. Vær kort og naturlig.`
 
-  const prompt = `Du er en bilsælger ved ${dealerName}. Skriv en kort, naturlig og ${toneDesc} email på ${language} til ${leadName}.
+  const openingVariations = [
+    'Start med en uformel personlig hilsen',
+    'Start med et åbent spørgsmål',
+    'Start direkte og kort uden indledning',
+    'Start med noget generelt om at finde den rigtige bil',
+    'Start med at sige du ville høre hvordan det går',
+  ]
+  const randomOpening = openingVariations[Math.floor(Math.random() * openingVariations.length)]
+
+  const prompt = `Du er en bilsælger ved ${dealerName}. Skriv en naturlig og ${toneDesc} email på ${language} til ${leadName}.
 
 Regler du SKAL følge:
 - Emailen må IKKE nævne specifikke biler som tilgængelige, priser eller tilbud
 - Emailen må IKKE opfordre til prøvekørsel eller booking
-- Emailen skal åbne eller holde en samtale i gang på en naturlig måde
+- Nævn IKKE tidligere samtaler eller møder
 - Max 4 korte sætninger
-- Lyd som et menneske, ikke en robot
+- ${randomOpening}
+- Lyd som et rigtigt menneske — ikke en robot
 - Afslut med: ${senderName}${dealerName ? `, ${dealerName}` : ''}
 
 ${contextDesc}
@@ -276,19 +286,37 @@ async function sendStandardEmail(dealer: Record<string, string>, lead: Record<st
   const tone = dealer.ai_tone || 'warm'
   const toneDesc = tone === 'professional' ? 'professionel og høflig' : tone === 'direct' ? 'direkte og venlig' : 'varm og personlig'
 
-  const prompt = `Du er en bilsælger ved ${dealerName}. Skriv en kort, naturlig og ${toneDesc} email på ${language} til ${leadName}.
+  // Variation i åbning og struktur så ingen to emails lyder ens
+  const openingStyles = [
+    'Start med at nævne noget generelt om bilmarkedet lige nu',
+    'Start med en personlig og uformel hilsen',
+    'Start direkte med dit ærinde uden small talk',
+    'Start med et spørgsmål der inviterer til svar',
+    'Start med at sige at du tænkte på personen uden grund',
+  ]
+  const lengthStyles = [
+    'Skriv 2 meget korte sætninger',
+    'Skriv 3 sætninger i naturligt tempo',
+    'Skriv 4 sætninger — den ene må gerne være meget kort',
+  ]
+  const randomOpening = openingStyles[Math.floor(Math.random() * openingStyles.length)]
+  const randomLength = lengthStyles[Math.floor(Math.random() * lengthStyles.length)]
+
+  const prompt = `Du er en bilsælger ved ${dealerName}. Skriv en naturlig og ${toneDesc} email på ${language} til ${leadName}.
 
 Regler du SKAL følge:
 - Emailen må IKKE nævne specifikke biler som tilgængelige, priser eller tilbud
 - Emailen må IKKE opfordre til prøvekørsel eller booking
-- Emailen skal blot åbne en samtale og vise at du husker personen
-- Max 4 korte sætninger
-- Lyd som et menneske, ikke en robot
+- Nævn IKKE tidligere samtaler, møder eller kontakt
+- ${randomLength}
+- ${randomOpening}
+- Lyd som et rigtigt menneske — ikke en robot eller sælger
+- Hver email skal føles unik og forskellig fra andre emails
 - Afslut med: ${senderName}${dealerName ? `, ${dealerName}` : ''}
 
 ${isWarm
-    ? 'Dette lead har vist interesse for en bil. Skriv en venlig og neutral email der spørger om de stadig er på udkig. Nævn IKKE tidligere samtaler eller møder — hold det åbent og naturligt.'
-    : 'Skriv en kort og neutral email der åbner en samtale. Nævn IKKE tidligere samtaler, møder eller kontakt. Skriv som om du bare vil høre om de stadig overvejer en ny bil.'
+    ? 'Dette lead har vist interesse for en bil. Åbn samtalen naturligt uden pres.'
+    : 'Åbn en samtale naturligt. Skriv som om du bare ville sige hej og høre hvordan det går med bilsøgningen.'
   }
 
 Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: https://drivedeal.live/unsubscribe?email=${lead.email}&dealer=${dealer.id}"`
