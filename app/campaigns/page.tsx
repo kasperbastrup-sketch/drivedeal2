@@ -53,6 +53,13 @@ export default function Campaigns() {
 
   return (
     <div>
+      <div style={{background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.2)',borderRadius:10,padding:'12px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:16}}>⏰</span>
+        <div>
+          <div style={{fontSize:12,fontWeight:600,color:'var(--gold)'}}>Kampagner kører via den daglige AI-scheduler</div>
+          <div style={{fontSize:11,color:'var(--text2)',marginTop:2}}>Emails sendes automatisk kl. 07:00 hver morgen — ikke med det samme. Aktivér en kampagne og systemet håndterer resten.</div>
+        </div>
+      </div>
       {showReport && (
         <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowReport(null)}}>
           <div className="modal modal-sm">

@@ -49,6 +49,10 @@ export default function Analytics() {
 
   return (
     <div>
+      <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:10,padding:'12px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:16}}>📊</span>
+        <div style={{fontSize:11,color:'var(--text2)'}}>Tallene herunder er estimerede og baseret på branchegennemsnit. Præcise tal fra dine egne kampagner vises automatisk når Gmail er forbundet og systemet har sendt de første emails.</div>
+      </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
         {[
           {label:tr.totalRoi,val:'1.840%',color:'var(--gold)',sub:tr.subVsSales},
