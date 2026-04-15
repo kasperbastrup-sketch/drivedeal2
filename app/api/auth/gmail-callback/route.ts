@@ -9,13 +9,13 @@ const supabase = createClient(
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
+  const state = searchParams.get('state') // userId sendt fra gmail/route.ts
 
   if (!code) {
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/integrations?error=no_code`)
   }
 
   try {
-    // Exchang code for tokens
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -40,28 +40,34 @@ export async function GET(req: NextRequest) {
     })
     const userInfo = await userRes.json()
 
-    // Find dealer via session cookie
-    const cookieHeader = req.headers.get('cookie') || ''
-    const sessionMatch = cookieHeader.match(/sb-[^=]+-auth-token=([^;]+)/)
-    
-    if (!sessionMatch) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/login`)
-    }
+    // Brug state (userId) til at finde dealer
+    let userId = state || ''
 
-    const sessionData = JSON.parse(decodeURIComponent(sessionMatch[1]))
-    const userId = sessionData?.user?.id
+    // Fallback: find dealer via gmail email
+    if (!userId) {
+      const { data: dealer } = await supabase
+        .from('dealers')
+        .select('id')
+        .eq('email', userInfo.email)
+        .single()
+      userId = dealer?.id || ''
+    }
 
     if (!userId) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/login`)
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/login?error=session_expired`)
     }
 
-    // Gem tokens i databasen
-    await supabase.from('dealers').update({
+    const { error } = await supabase.from('dealers').update({
       gmail_access_token: tokens.access_token,
       gmail_refresh_token: tokens.refresh_token,
       gmail_email: userInfo.email,
       gmail_connected: true,
     }).eq('id', userId)
+
+    if (error) {
+      console.error('Supabase update error:', error)
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/integrations?error=db_error`)
+    }
 
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/integrations?gmail=connected`)
 
