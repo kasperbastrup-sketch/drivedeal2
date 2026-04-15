@@ -25,6 +25,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setCampaignCount(campaigns || 0)
   }
 
+  useEffect(() => {
+    // Real-time subscription — opdater sidebar tæller når leads eller email_logs ændrer sig
+    let channel: any = null
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      channel = supabase
+        .channel('db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'leads', filter: `dealer_id=eq.${user.id}` }, () => { loadCounts() })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'email_logs', filter: `dealer_id=eq.${user.id}` }, () => { loadCounts() })
+        .subscribe()
+    })
+    return () => { if (channel) supabase.removeChannel(channel) }
+  }, [])
+
   useEffect(() => { loadCounts() }, [])
 
   return (
