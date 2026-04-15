@@ -72,7 +72,7 @@ export default function Sidebar({ leadCount, campaignCount }: Props) {
               <button
                 key={item.path}
                 className={`nav-item ${pathname === item.path ? 'active' : ''}`}
-                onClick={() => router.push(item.path)}
+                onClick={() => item.path === '/analytics' ? window.location.href = item.path : router.push(item.path)}
               >
                 {item.label}
                 {item.badge && <span className="nav-badge">{item.badge}</span>}
