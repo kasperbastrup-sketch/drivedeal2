@@ -8,9 +8,9 @@ const supabase = createClient(
 )
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization") || `Bearer ${new URL(req.url).searchParams.get("secret")}`
+  const authHeader = req.headers.get('authorization') || `Bearer ${new URL(req.url).searchParams.get('secret')}`
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
@@ -40,8 +40,32 @@ export async function GET(req: NextRequest) {
         }
 
         const dealerWithToken = { ...dealer, gmail_access_token: accessToken }
+        const now = new Date()
+        const today = now.toISOString().split('T')[0]
+        const segments = dealer.send_to_segments || 'all'
 
-        // 1. Håndter aktive sekvenser
+        // FASE 1: Genaktiver leads der har ventet 6 måneder (unresponsive → cold)
+        const sixMonthsAgo = new Date()
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+        await supabase
+          .from('leads')
+          .update({ status: 'cold', contact_count: 0, reactivation_date: null })
+          .eq('dealer_id', dealer.id)
+          .eq('status', 'unresponsive')
+          .lt('reactivation_date', sixMonthsAgo.toISOString())
+
+        // FASE 2: Sæt leads til unresponsive efter 90 dage uden svar (sent → unresponsive)
+        const ninetyDaysAgo = new Date()
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+        const reactivateAt = new Date(now.getTime() + 6 * 30 * 24 * 60 * 60 * 1000).toISOString()
+        await supabase
+          .from('leads')
+          .update({ status: 'unresponsive', reactivation_date: reactivateAt })
+          .eq('dealer_id', dealer.id)
+          .eq('status', 'sent')
+          .lt('last_contacted_at', ninetyDaysAgo.toISOString())
+
+        // Håndter aktive sekvenser
         const { data: activeSequences } = await supabase
           .from('sequences')
           .select('*')
@@ -52,7 +76,7 @@ export async function GET(req: NextRequest) {
           for (const seq of activeSequences) {
             const steps = seq.steps || []
 
-            // Find leads der er i denne sekvens og skal have næste email
+            // Leads der er i sekvensen — tjek om næste email skal sendes
             const { data: seqLeads } = await supabase
               .from('leads')
               .select('*')
@@ -61,17 +85,13 @@ export async function GET(req: NextRequest) {
               .not('status', 'eq', 'booked')
               .not('status', 'eq', 'replied')
 
-            const todayDate = new Date().toISOString().split('T')[0]
             for (const lead of (seqLeads || [])) {
-              // Spring over hvis leadet allerede er kontaktet i dag
-              if (lead.last_contacted_at && lead.last_contacted_at.startsWith(todayDate)) continue
+              if (lead.last_contacted_at && lead.last_contacted_at.startsWith(today)) continue
 
               const currentStep = lead.sequence_step || 0
               const nextStep = currentStep + 1
+              if (nextStep >= steps.length) continue
 
-              if (nextStep >= steps.length) continue // Sekvens færdig
-
-              // Beregn hvornår næste email skal sendes
               const nextStepData = steps[nextStep]
               const dayDelay = parseInt(nextStepData.day?.replace(/[^0-9]/g, '') || '7')
               const startedAt = new Date(lead.sequence_started_at || lead.created_at)
@@ -85,25 +105,21 @@ export async function GET(req: NextRequest) {
                   console.error(`Sequence email failed for ${lead.email}:`, err)
                   totalFailed++
                 }
-
                 if (dealer.antispam) {
                   await new Promise(r => setTimeout(r, Math.floor(Math.random() * 60 + 30) * 1000))
                 }
               }
             }
 
-            // Find leads der ikke er i en sekvens endnu — start dem på sekvensen
-            const segments = dealer.send_to_segments || 'all'
-            const statusFilter = segments_f === 'cold' ? ['cold'] : segments_f === 'warm' ? ['warm'] : ['cold', 'warm']
-            const todayStr = new Date().toISOString().split('T')[0]
-
+            // Nye leads der skal starte i sekvensen
+            const activeFilter = segments === 'cold' ? ['cold'] : segments === 'warm' ? ['warm'] : ['cold', 'warm']
             const { data: newLeads } = await supabase
               .from('leads')
               .select('*')
               .eq('dealer_id', dealer.id)
-              .in('status', statusFilter)
+              .in('status', activeFilter)
               .is('sequence_id', null)
-              .or(`last_contacted_at.is.null,last_contacted_at.lt.${todayStr}`)
+              .or(`last_contacted_at.is.null,last_contacted_at.lt.${today}`)
               .order('score', { ascending: false })
               .limit(dealer.daily_limit || 100)
 
@@ -116,49 +132,19 @@ export async function GET(req: NextRequest) {
                 console.error(`Sequence start failed for ${lead.email}:`, err)
                 totalFailed++
               }
-
               if (dealer.antispam) {
                 await new Promise(r => setTimeout(r, Math.floor(Math.random() * 60 + 30) * 1000))
               }
             }
           }
         } else {
-          // Ingen aktive sekvenser — tre-fase system
-        const today = new Date().toISOString().split('T')[0]
-        const now = new Date()
-
-        // Fase 1: Genaktiver leads der har ventet 6 måneder
-        const sixMonthsAgo = new Date()
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-        await supabase
-          .from('leads')
-          .update({ status: 'cold', contact_count: 0, reactivation_date: null })
-          .eq('dealer_id', dealer.id)
-          .eq('status', 'unresponsive')
-          .lt('reactivation_date', sixMonthsAgo.toISOString())
-
-        // Fase 2: Sæt leads til unresponsive efter 90 dage uden svar
-        const ninetyDaysAgo = new Date()
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
-        await supabase
-          .from('leads')
-          .update({ 
-            status: 'unresponsive',
-            reactivation_date: new Date(now.getTime() + 6 * 30 * 24 * 60 * 60 * 1000).toISOString()
-          })
-          .eq('dealer_id', dealer.id)
-          .eq('status', 'sent')
-          .lt('last_contacted_at', ninetyDaysAgo.toISOString())
-
-        // Fase 3: Find og send til aktive leads
-        const segments_f = dealer.send_to_segments || 'all'
-          const statusFilter = segments_f === 'cold' ? ['cold'] : segments_f === 'warm' ? ['warm'] : ['cold', 'warm']
-
+          // FASE 3: Ingen aktive sekvenser — send standard daglig email
+          const activeFilter = segments === 'cold' ? ['cold'] : segments === 'warm' ? ['warm'] : ['cold', 'warm']
           const { data: leads } = await supabase
             .from('leads')
             .select('*')
             .eq('dealer_id', dealer.id)
-            .in('status', statusFilter)
+            .in('status', activeFilter)
             .or(`last_contacted_at.is.null,last_contacted_at.lt.${today}`)
             .order('score', { ascending: false })
             .limit(dealer.daily_limit || 100)
@@ -169,6 +155,9 @@ export async function GET(req: NextRequest) {
             }
             try {
               await sendStandardEmail(dealerWithToken, lead)
+              await supabase.from('leads').update({
+                contact_count: (parseInt(lead.contact_count) || 0) + 1
+              }).eq('id', lead.id)
               totalSent++
             } catch (err) {
               console.error(`Standard email failed for ${lead.email}:`, err)
@@ -177,7 +166,7 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        await supabase.from('dealers').update({ last_sent_at: new Date().toISOString() }).eq('id', dealer.id)
+        await supabase.from('dealers').update({ last_sent_at: now.toISOString() }).eq('id', dealer.id)
 
       } catch (err) {
         console.error(`Failed for dealer ${dealer.id}:`, err)
@@ -205,13 +194,12 @@ async function sendSequenceEmail(
   const tone = dealer.ai_tone || 'warm'
   const isFirst = stepIndex === 0
   const isLast = stepIndex === (sequence.steps?.length || 1) - 1
-
   const toneDesc = tone === 'professional' ? 'professionel og høflig' : tone === 'direct' ? 'direkte og venlig' : 'varm og personlig'
 
   const contextDesc = isFirst
-    ? `Dette er den første kontakt. Åbn samtalen naturligt uden at nævne tidligere kontakt.`
+    ? 'Dette er den første kontakt. Åbn samtalen naturligt uden at nævne tidligere kontakt.'
     : isLast
-    ? `Dette er den sidste email. Skriv en afrunding der lader døren stå åben uden pres.`
+    ? 'Dette er den sidste email. Skriv en afrunding der lader døren stå åben uden pres.'
     : `Dette er opfølgning nr. ${stepIndex + 1}. Leadet har ikke svaret endnu. Vær kort og naturlig.`
 
   const openingVariations = [
@@ -263,7 +251,6 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
   ]
   const subject = subjectOptions[stepIndex % subjectOptions.length]
 
-  // Opret email log først så vi har ID til tracking pixel
   const { data: logEntry } = await supabase.from('email_logs').insert({
     dealer_id: dealer.id,
     lead_id: lead.id,
@@ -272,11 +259,8 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
     status: 'sent',
   }).select().single()
 
-  // Tilføj tracking pixel til email body
   const trackingPixel = logEntry ? `\n\n<img src="https://drivedeal.live/api/track/open?id=${logEntry.id}" width="1" height="1" style="display:none"/>` : ''
-  const emailBodyWithTracking = emailBody + trackingPixel
-
-  const rawEmail = createRawEmail(dealer.gmail_email, lead.email, subject, emailBodyWithTracking)
+  const rawEmail = createRawEmail(dealer.gmail_email, lead.email, subject, emailBody + trackingPixel)
 
   const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
@@ -292,7 +276,6 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
     throw new Error(err.error?.message || 'Gmail send failed')
   }
 
-  // Opdater lead
   await supabase.from('leads').update({
     status: 'sent',
     last_contacted_at: new Date().toISOString(),
@@ -312,7 +295,6 @@ async function sendStandardEmail(dealer: Record<string, string>, lead: Record<st
   const tone = dealer.ai_tone || 'warm'
   const toneDesc = tone === 'professional' ? 'professionel og høflig' : tone === 'direct' ? 'direkte og venlig' : 'varm og personlig'
 
-  // Variation i åbning og struktur så ingen to emails lyder ens
   const openingStyles = [
     'Start med at nævne noget generelt om bilmarkedet lige nu',
     'Start med en personlig og uformel hilsen',
@@ -337,12 +319,11 @@ Regler du SKAL følge:
 - ${randomLength}
 - ${randomOpening}
 - Lyd som et rigtigt menneske — ikke en robot eller sælger
-- Hver email skal føles unik og forskellig fra andre emails
 - Afslut med: ${senderName}${dealerName ? `, ${dealerName}` : ''}
 
 ${isWarm
     ? 'Dette lead har vist interesse for en bil. Åbn samtalen naturligt uden pres.'
-    : 'Åbn en samtale naturligt. Skriv som om du bare ville sige hej og høre hvordan det går med bilsøgningen.'
+    : 'Åbn en samtale naturligt. Skriv som om du bare ville sige hej og høre om de stadig overvejer en ny bil.'
   }
 
 Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: https://drivedeal.live/unsubscribe?email=${lead.email}&dealer=${dealer.id}"`
@@ -369,7 +350,6 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
     ? `Hej ${leadName} — er du stadig på udkig?`
     : `Hej ${leadName} — jeg tænkte på dig`
 
-  // Opret email log først så vi har ID til tracking pixel
   const { data: logEntry } = await supabase.from('email_logs').insert({
     dealer_id: dealer.id,
     lead_id: lead.id,
@@ -379,9 +359,7 @@ Tilføj til sidst på en ny linje: "Ønsker du ikke at modtage flere emails: htt
   }).select().single()
 
   const trackingPixel = logEntry ? `\n\n<img src="https://drivedeal.live/api/track/open?id=${logEntry.id}" width="1" height="1" style="display:none"/>` : ''
-  const emailBodyWithTracking = emailBody + trackingPixel
-
-  const rawEmail = createRawEmail(dealer.gmail_email, lead.email, subject, emailBodyWithTracking)
+  const rawEmail = createRawEmail(dealer.gmail_email, lead.email, subject, emailBody + trackingPixel)
 
   const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
