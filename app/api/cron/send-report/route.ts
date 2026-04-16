@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     for (const dealer of dealers) {
       try {
         // Tjek om månedlig rapport er slået til og det er den 1. i måneden
-        const isMonthly = dealer.monthly_report_enabled && dayOfMonth === 1
+        const isMonthly = dealer.monthly_report_enabled
 
         if (!isMonthly) continue
 
