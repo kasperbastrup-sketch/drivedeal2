@@ -52,6 +52,8 @@ export default function ComposeModal({ lead, onClose, onSent }: Props) {
       }
 
       // Send via Gmail API
+      const unsubscribeLink = `\nØnsker du ikke at modtage flere emails: https://drivedeal.live/unsubscribe?email=${lead.email}&dealer=${user.id}`
+      const bodyWithUnsubscribe = body + unsubscribeLink
       const emailContent = [
         `From: ${dealer.gmail_email}`,
         `To: ${lead.email}`,
@@ -59,7 +61,7 @@ export default function ComposeModal({ lead, onClose, onSent }: Props) {
         'Content-Type: text/plain; charset=utf-8',
         'MIME-Version: 1.0',
         '',
-        body,
+        bodyWithUnsubscribe,
       ].join('\r\n')
 
       const raw = btoa(unescape(encodeURIComponent(emailContent)))
