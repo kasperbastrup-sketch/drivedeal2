@@ -152,9 +152,7 @@ export async function GET(req: NextRequest) {
 
         // Fase 3: Find og send til aktive leads
         const segments_f = dealer.send_to_segments || 'all'
-          const segments = dealer.send_to_segments || 'all'
-          const statusFilter = segments === 'cold' ? ['cold'] : segments === 'warm' ? ['warm'] : ['cold', 'warm']
-          const today = new Date().toISOString().split('T')[0]
+          const statusFilter = segments_f === 'cold' ? ['cold'] : segments_f === 'warm' ? ['warm'] : ['cold', 'warm']
 
           const { data: leads } = await supabase
             .from('leads')
