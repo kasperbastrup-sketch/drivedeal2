@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
 
             // Find leads der ikke er i en sekvens endnu — start dem på sekvensen
             const segments = dealer.send_to_segments || 'all'
-            const statusFilter = segments === 'cold' ? ['cold'] : segments === 'warm' ? ['warm'] : ['cold', 'warm']
+            const statusFilter = segments_f === 'cold' ? ['cold'] : segments_f === 'warm' ? ['warm'] : ['cold', 'warm']
             const todayStr = new Date().toISOString().split('T')[0]
 
             const { data: newLeads } = await supabase
@@ -123,7 +123,35 @@ export async function GET(req: NextRequest) {
             }
           }
         } else {
-          // Ingen aktive sekvenser — send standard daglig email
+          // Ingen aktive sekvenser — tre-fase system
+        const today = new Date().toISOString().split('T')[0]
+        const now = new Date()
+
+        // Fase 1: Genaktiver leads der har ventet 6 måneder
+        const sixMonthsAgo = new Date()
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+        await supabase
+          .from('leads')
+          .update({ status: 'cold', contact_count: 0, reactivation_date: null })
+          .eq('dealer_id', dealer.id)
+          .eq('status', 'unresponsive')
+          .lt('reactivation_date', sixMonthsAgo.toISOString())
+
+        // Fase 2: Sæt leads til unresponsive efter 90 dage uden svar
+        const ninetyDaysAgo = new Date()
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+        await supabase
+          .from('leads')
+          .update({ 
+            status: 'unresponsive',
+            reactivation_date: new Date(now.getTime() + 6 * 30 * 24 * 60 * 60 * 1000).toISOString()
+          })
+          .eq('dealer_id', dealer.id)
+          .eq('status', 'sent')
+          .lt('last_contacted_at', ninetyDaysAgo.toISOString())
+
+        // Fase 3: Find og send til aktive leads
+        const segments_f = dealer.send_to_segments || 'all'
           const segments = dealer.send_to_segments || 'all'
           const statusFilter = segments === 'cold' ? ['cold'] : segments === 'warm' ? ['warm'] : ['cold', 'warm']
           const today = new Date().toISOString().split('T')[0]
