@@ -43,12 +43,33 @@ export default function ComposeModal({ lead, onClose, onSent }: Props) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { show('❌', 'Ikke logget ind', ''); setLoading(false); return }
 
-      const { data: dealer } = await supabase.from('dealers').select('gmail_access_token, gmail_email, gmail_connected').eq('id', user.id).single()
+      const { data: dealer } = await supabase.from('dealers').select('gmail_access_token, gmail_refresh_token, gmail_email, gmail_connected').eq('id', user.id).single()
 
       if (!dealer?.gmail_connected || !dealer?.gmail_access_token) {
         show('⚠️', 'Gmail ikke forbundet', 'Gå til Integrationer og forbind Gmail')
         setLoading(false)
         return
+      }
+
+      // Refresh token hvis det er udløbet
+      let accessToken = dealer.gmail_access_token
+      if (dealer.gmail_refresh_token) {
+        try {
+          const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+              refresh_token: dealer.gmail_refresh_token,
+              grant_type: 'refresh_token',
+            }),
+          })
+          const refreshData = await refreshRes.json()
+          if (refreshData.access_token) {
+            accessToken = refreshData.access_token
+            await supabase.from('dealers').update({ gmail_access_token: accessToken }).eq('id', user.id)
+          }
+        } catch {}
       }
 
       // Send via Gmail API
@@ -70,7 +91,7 @@ export default function ComposeModal({ lead, onClose, onSent }: Props) {
       const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${dealer.gmail_access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ raw }),
