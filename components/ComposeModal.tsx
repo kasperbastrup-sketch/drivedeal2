@@ -51,26 +51,19 @@ export default function ComposeModal({ lead, onClose, onSent }: Props) {
         return
       }
 
-      // Refresh token hvis det er udløbet
+      // Refresh token via server-side API
       let accessToken = dealer.gmail_access_token
-      if (dealer.gmail_refresh_token) {
-        try {
-          const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-              client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
-              refresh_token: dealer.gmail_refresh_token,
-              grant_type: 'refresh_token',
-            }),
-          })
-          const refreshData = await refreshRes.json()
-          if (refreshData.access_token) {
-            accessToken = refreshData.access_token
-            await supabase.from('dealers').update({ gmail_access_token: accessToken }).eq('id', user.id)
-          }
-        } catch {}
-      }
+      try {
+        const refreshRes = await fetch('/api/refresh-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        })
+        const refreshData = await refreshRes.json()
+        if (refreshData.access_token) {
+          accessToken = refreshData.access_token
+        }
+      } catch {}
 
       // Send via Gmail API
       const unsubscribeLink = `\nØnsker du ikke at modtage flere emails: https://drivedeal.live/unsubscribe?email=${lead.email}&dealer=${user.id}`
