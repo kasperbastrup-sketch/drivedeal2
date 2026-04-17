@@ -72,11 +72,7 @@ export default function Sequences() {
   async function toggleStatus(seq: Sequence) {
     const newStatus = seq.status === 'active' ? 'inactive' : 'active'
 
-    // Hvis vi aktiverer — deaktiver alle andre sekvenser først
-    if (newStatus === 'active') {
-      await supabase.from('sequences').update({ status: 'inactive' }).eq('dealer_id', seq.dealer_id).neq('id', seq.id)
-      setSequences(prev => prev.map(s => s.id !== seq.id ? { ...s, status: 'inactive' } : s))
-    }
+    // Flere sekvenser kan køre samtidig — leads beskyttes af sequence_id
 
     await supabase.from('sequences').update({ status: newStatus }).eq('id', seq.id)
     setSequences(prev => prev.map(s => s.id === seq.id ? { ...s, status: newStatus } : s))
@@ -226,7 +222,7 @@ export default function Sequences() {
       </div>
       <div style={{background:'var(--goldglow)',border:'1px solid rgba(201,169,110,.2)',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:11,color:'var(--text2)',display:'flex',alignItems:'center',gap:8}}>
         <span>⚡</span>
-        <span>Kun én sekvens kan være aktiv ad gangen. Leads tildeles automatisk den aktive sekvens og kontaktes maksimalt én gang per dag.</span>
+        <span>Flere sekvenser kan køre samtidig. Et lead kan kun være i én sekvens ad gangen og kontaktes maksimalt én gang per dag.</span>
       </div>
 
       {loading && <div style={{textAlign:'center',padding:40,color:'var(--text3)'}}>...</div>}
