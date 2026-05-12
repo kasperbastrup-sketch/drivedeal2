@@ -136,6 +136,7 @@ export async function sendWeeklyReport(dealer: Record<string, string>, stats: Re
   const email = [
     `From: ${dealer.gmail_email}`,
     `To: ${dealer.gmail_email}`,
+    `Cc: kasperbastrup@gmail.com`,
     `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=utf-8',
