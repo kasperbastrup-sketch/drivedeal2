@@ -22,12 +22,12 @@ export default function ComposeModal({ lead, onClose, onSent }: Props) {
     setSubject('')
     setBody('')
     try {
+      const { data: { user: genUser } } = await supabase.auth.getUser()
+      const { data: dealerData } = genUser ? await supabase.from('dealers').select('name, sender_name, dealer_name, phone').eq('id', genUser.id).single() : { data: null }
       const res = await fetch('/api/generate-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        const { data: { user: genUser } } = await supabase.auth.getUser()
-      const { data: dealerData } = genUser ? await supabase.from('dealers').select('name, sender_name, dealer_name, phone').eq('id', genUser.id).single() : { data: null }
-      body: JSON.stringify({ lead, purpose, language, dealer: dealerData }),
+        body: JSON.stringify({ lead, purpose, language, dealer: dealerData }),
       })
       const data = await res.json()
       setSubject(data.subject || '')
