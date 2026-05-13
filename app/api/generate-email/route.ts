@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req: NextRequest) {
-  const { lead, purpose, language } = await req.json()
+  const { lead, purpose, language, dealer } = await req.json()
 
   const purposeMap: Record<string,string> = {
     proevekoer: 'invitere til en gratis, uforpligtende prøvekørsel af deres drømmebil',
@@ -30,7 +30,7 @@ Regler:
 2. Brug kundens fornavn
 3. Nævn specifikt bilmodellen
 4. Én klar call-to-action
-5. Afslut med: Carlos · Mercedes-Benz Barcelona · +34 93 123 45 67
+5. Afslut med: ${dealer?.sender_name || dealer?.name || 'Dit team'} · ${dealer?.dealer_name || ''} · ${dealer?.phone || ''}
 6. Skriv varmt og autentisk
 7. SVAR KUN med JSON: {"subject":"EMNE","body":"TEKST MED \\n FOR LINJESKIFT"}`
 
