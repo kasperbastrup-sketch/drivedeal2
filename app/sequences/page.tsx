@@ -23,14 +23,14 @@ export default function Sequences() {
   const recommended: Step[] = [
     { day: 'Dag 0', name: 'Personlig check-in email', desc: 'Sendes straks ved kampagnestart' },
     { day: 'Dag 10', name: 'Blid opfølgning', desc: 'Kun hvis email 1 ikke er besvaret' },
-    { day: 'Dag 20', name: 'Eksklusivt tilbud', desc: 'Sidste chance med personlig rabat' },
+    { day: 'Dag 20', name: 'Sidste opfølgning', desc: 'Blid afsluttende kontakt — lader døren stå åben' },
   ]
 
   const intensive: Step[] = [
     { day: 'Dag 0', name: 'Intro email', desc: 'Nysgerrighed-drevet åbning' },
     { day: 'Dag 7', name: 'Specifik model info', desc: 'Personaliseret til bil-interesse' },
     { day: 'Dag 14', name: 'Prøvekørsel invitation', desc: 'Med booking link' },
-    { day: 'Dag 21', name: 'Tidsbegrænset tilbud', desc: 'Urgency-trigger med deadline' },
+    { day: 'Dag 21', name: 'Afsluttende besked', desc: 'Naturlig afrunding — ingen pres' },
   ]
 
   useEffect(() => { loadSequences() }, [])
